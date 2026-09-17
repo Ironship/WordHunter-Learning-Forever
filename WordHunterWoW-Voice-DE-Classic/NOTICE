@@ -1,0 +1,23 @@
+QuestWordHunter - German Voiceover: Classic
+Copyright (c) 2026 Ironship
+
+This addon is distributed under the GNU General Public License v3; see LICENSE.
+
+The spoken audio is generated locally from the German quest text with
+Voxtral 4B TTS (Mistral AI, mistralai/Voxtral-4B-TTS-2603), released under
+CC BY-NC 4.0. The audio it produces carries that licence, so this sound pack
+and the engine addon it belongs to are given away and may not be sold. That is
+the whole of what non-commercial costs here, and it was chosen with the cost
+known: the readers that permit commercial use were measurably worse in German.
+
+The German quest text is Blizzard Entertainment's, read from the World of
+Warcraft Game Data API under the project's own credentials, and every clip in
+this pack is spoken from those records and from nothing else.
+
+The voices are the reader's own. Mistral removed the audio encoder from the
+open weights, so this reader cannot be given a voice and nothing here is cloned
+from anybody: the two used are its built-in presets, one German female and one
+neutral male. No recording of any person is distributed with this addon.
+
+World of Warcraft is a trademark of Blizzard Entertainment, Inc. This project
+is not affiliated with or endorsed by Blizzard Entertainment.

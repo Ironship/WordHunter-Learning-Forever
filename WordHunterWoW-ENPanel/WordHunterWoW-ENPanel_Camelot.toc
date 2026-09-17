@@ -1,0 +1,17 @@
+## Interface: 16001
+## Title: QuestWordHunter - English Quest Panel
+## Notes: English quest text while you play in another language, plus item tooltips when the item pack is installed. Works on its own.
+## IconTexture: Interface\AddOns\WordHunterWoW-ENPanel\icon
+## Author: Ironship
+## Version: 1.6.3
+## SavedVariables: WordHunterWoWENPanelDB
+
+Data/Classic/QuestEN_000.lua
+Data/Classic/QuestEN_001.lua
+Data/Classic/QuestEN_002.lua
+Data/Classic/QuestEN_003.lua
+Data/Classic/QuestEN_004.lua
+
+
+ENPanel.lua
+Names.lua

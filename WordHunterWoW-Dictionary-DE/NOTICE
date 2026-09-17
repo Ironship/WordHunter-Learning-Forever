@@ -1,0 +1,61 @@
+WordHunterWoW-Dictionary-DE
+Copyright (C) 2026 Ironship
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. See the LICENSE file for the full text.
+
+
+Third-party material
+--------------------
+
+Part of the German vocabulary in this dictionary was gathered from the German
+quest text in the quest database of Questie
+(https://github.com/Questie/Questie), which is distributed under the GNU
+General Public License version 3.
+
+Modifications made by Ironship, 30 August 2026:
+
+  * German quest titles and objective lines for Classic Era were read for the
+    words they contain. Roughly 3,900 words that the dictionary did not
+    already cover were taken from them.
+  * What this addon ships is not that text. It is a list of individual German
+    words, each with an English translation and an explanatory note written
+    for this project. No quest sentence is reproduced.
+  * The remaining ~74,000 entries were built from Blizzard's own Game Data API
+    and are unaffected.
+
+The extraction is performed by Tools/extract_classic_words.py, which is part of
+the corresponding source of this work.
+
+A further part of the vocabulary was gathered from the German quest text in the
+MultiLanguage addon by Ruben Zantingh
+(https://github.com/rubenzantingh/MultiLanguage), used with his permission
+given on 2 September 2026.
+
+Blizzard's Game Data API publishes a quest's title and description and nothing
+else, so until now this dictionary held 52 objective lines and 13 progress
+lines against 28,888 descriptions. MultiLanguage carries the objective line,
+the text an NPC speaks while a quest is in progress, and the text spoken when
+it is handed in, for more quests than the API returns.
+
+Modifications made by Ironship, 2 September 2026:
+
+  * That text was read for the words it contains: 36,405 objective lines,
+    11,094 progress lines and 26,246 hand-in lines, covering 16,888 quests the
+    API does not return at all.
+  * As above, what this addon ships is not that text. Quest text stays in
+    Data/cache, which is outside the repository and is never packaged. What
+    ships is a list of single words, each with an English translation and an
+    explanatory note written for this project. No quest sentence is reproduced.
+  * Where Blizzard's API had already supplied a field, its wording was kept.
+
+The import is performed by Tools/import_multilanguage.py, which is part of the
+corresponding source of this work.
+
+World of Warcraft content and materials are trademarks and copyrights of
+Blizzard Entertainment or its licensors. This addon is not affiliated with or
+endorsed by Blizzard Entertainment, and the GNU General Public License above
+applies to this addon's own code and to the material it received under that
+licence, not to Blizzard's underlying content.

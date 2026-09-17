@@ -1,0 +1,10 @@
+## Interface: 16001
+## Title: QuestWordHunter - German Dictionary
+## Notes: Optional German-English quest dictionary. Requires WordHunterWoW 1.6.0 or newer.
+## IconTexture: Interface\AddOns\WordHunterWoW-Dictionary-DE\icon
+## Author: Ironship
+## Version: 1.5.0
+## Dependencies: WordHunterWoW
+
+Data/DictionaryDE.lua
+Bootstrap.lua

@@ -1,0 +1,60 @@
+WordHunterWoW-ENPanel
+Copyright (C) 2026 Ironship
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. See the LICENSE file for the full text.
+
+
+Third-party material
+--------------------
+
+The Classic Era quest data in Data/Classic/ is derived from the quest database
+of Questie (https://github.com/Questie/Questie), which is distributed under the
+GNU General Public License version 3.
+
+Modifications made by Ironship, 30 August 2026:
+
+  * Quest titles and objective text were extracted for Classic Era quest ids
+    and rewritten into this addon's own Lua table format.
+  * Fields this addon does not use -- quest givers, coordinates, level and
+    faction requirements, quest chains, reward tables and objective spawn
+    data -- were dropped.
+  * No quest text was altered. Where the upstream database has no offer text
+    for a quest, this addon has none either and says so rather than inventing
+    one.
+
+The extraction is performed by Tools/extract_classic_quests.lua, which is part
+of the corresponding source of this work.
+
+The English progress and hand-in lines come from the MultiLanguage addon by
+Ruben Zantingh (https://github.com/rubenzantingh/MultiLanguage), used with his
+permission given on 2 September 2026.
+
+Blizzard's Game Data API publishes a quest's opening text and objectives and
+nothing else. It does not publish the line an NPC speaks while a quest is in
+progress, nor the one spoken at hand-in, so this panel could only ever show the
+opening text at those two moments and print a caveat admitting it was the wrong
+passage.
+
+Modifications made by Ironship, 2 September 2026:
+
+  * 17,138 progress lines and 30,780 hand-in lines were taken, together with
+    38,390 objective lines and 18,226 quests the API does not return at all.
+  * They were rewritten into this addon's own Lua table format. Fields this
+    addon does not use were dropped.
+  * No quest text was altered. Where a quest still has no progress or hand-in
+    line, the panel says so rather than showing the opening text in its place.
+
+The import is performed by Tools/import_multilanguage.py, which is part of the
+corresponding source of this work.
+
+World of Warcraft content and materials are trademarks and copyrights of
+Blizzard Entertainment or its licensors. This addon is not affiliated with or
+endorsed by Blizzard Entertainment, and the GNU General Public License above
+applies to this addon's own code and to the material it received under that
+licence, not to Blizzard's underlying content.
+
+Item, spell and creature names elsewhere in this addon come from Blizzard's
+own Game Data API and are not covered by the paragraph above.

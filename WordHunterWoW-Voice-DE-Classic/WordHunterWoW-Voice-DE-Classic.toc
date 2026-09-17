@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: QuestWordHunter - German Voiceover: Classic
+## Notes: German quest audio for Classic. Needs WordHunterWoW-Voice-DE.
+## IconTexture: Interface\AddOns\WordHunterWoW-Voice-DE-Classic\icon
+## Author: Ironship
+## Version: 1.0.2
+## Dependencies: WordHunterWoW-Voice-DE
+
+Part.lua

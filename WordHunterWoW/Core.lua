@@ -1,0 +1,1658 @@
+local Addon = WordHunterWoW_Addon or {}
+WordHunterWoW_Addon = Addon
+
+Addon.COLORS = {
+  text = { 0.93, 0.94, 0.96 },
+  muted = { 0.76, 0.80, 0.86 },
+  new = { 0.35, 0.68, 1.00 },
+  learning = { 1.00, 0.66, 0.18 },
+  known = { 0.30, 0.88, 0.48 },
+  -- The dullest of the four, and deliberately so, but it landed on exactly
+  -- 4.50:1 once the status colours became a text colour the player can pick.
+  -- Sitting on the floor means the next palette tweak breaks it.
+  ignored = { 0.62, 0.66, 0.73 },
+  neutral = { 0.45, 0.55, 0.70 },
+  -- A missing translation is a note, not a red vocabulary highlight.
+  caveat = { 0.76, 0.80, 0.86 },
+  enHighlight = { 0.80, 0.91, 1.00 },
+  enWordHighlight = { 1.00, 0.66, 0.61 },
+  enHighlightBackground = { 0.18, 0.27, 0.36, 0.55 },
+}
+
+Addon.STATUS_LABELS = {
+  new = "New",
+  learning = "Learning",
+  known = "Known",
+  ignored = "Ignored",
+}
+
+Addon.SUPPORTED_LOCALES = {
+  enUS = "English (US)",
+  enGB = "English (GB)",
+  deDE = "German",
+  frFR = "French",
+  esES = "Spanish (EU)",
+  esMX = "Spanish (MX)",
+  itIT = "Italian",
+  ptBR = "Portuguese (BR)",
+}
+Addon.SUPPORTED_LOCALE_LIST = { "enUS", "enGB", "deDE", "frFR", "esES", "esMX", "itIT", "ptBR" }
+Addon.WH_LANGUAGE_MAP = {
+  enUS = "en",
+  enGB = "en",
+  deDE = "de",
+  frFR = "fr",
+  esES = "es",
+  esMX = "es",
+  itIT = "it",
+  ptBR = "pt",
+}
+
+Addon.LABELS = {
+  meaning = "Meaning / translation",
+  note = "Note",
+  copyWord = "Copy word",
+  copyQuest = "Copy quest",
+  copyHint = "Press Ctrl+C to copy",
+  save = "Save",
+  cancel = "Cancel",
+  status = "Status",
+  empty = "Open a quest to mark words.",
+  german = "For %s quest text, set the WoW text language to %s.",
+  -- The per-quest progress line. Assembled from parts so the three figures
+  -- can each carry the colour its words are drawn in.
+  progressWords = "%d words",
+  progressKnown = "%d%% known",
+  progressLearning = "%d%% learning",
+  progressNew = "%d%% new",
+  progressNothing = "no words to score",
+  readyForKnown = "Ready for Known",
+  listTitle = "WORD LIST",
+  search = "Search",
+  all = "All",
+  hideIgnored = "Hide Ignored",
+  wordsButton = "Words",
+  statsButton = "Stats",
+  statsTitle = "STATISTICS",
+  statsSummary = "%d words",
+  added7 = "Added (7 days)",
+  added30 = "Added (30 days)",
+  mostEncountered = "Most encountered",
+  settingsTitle = "WordHunterWoW Settings",
+  backgroundLabel = "Background style",
+  wordMarkingLabel = "Marking for words you have met",
+  opacityLabel = "Frame opacity",
+  -- Two headings rather than one run of sliders, and each says what its numbers
+  -- measure. Addon.SIZE_GROUPS carries the reasoning.
+  textGroupLabel = "Text size",
+  textGroupNote = "Shown as the size the letters end up. The window keeps whatever size you dragged it to — only the text in it grows.",
+  windowGroupLabel = "Window size",
+  windowGroupNote = "Shown as a percentage of the whole window — border, buttons and text together. Not the same measurement as a text size above, and the two are not meant to match.",
+  textScaleLabel = "Quest panel text",
+  enPanelScaleLabel = "English text",
+  enPanelScaleNote = "Sizes the English wherever it is shown: the column inside the quest panel, and the separate English window when that column is switched off.",
+  editorScaleLabel = "Word editor window",
+  listScaleLabel = "Word list window",
+  statsScaleLabel = "Statistics window",
+  languageLabel = "Target (learned and in game) language",
+  resetDictionary = "Reset to dictionary",
+  confirmAction = "Reset",
+  confirmCancel = "Cancel",
+  -- Shown before the reset happens. Someone checking whether they still have
+  -- their own edit needs to see what the dictionary would put back, not find
+  -- out afterwards.
+  resetConfirmBody = "This replaces what you have written with the dictionary's own version.\n\n"
+    .. "|cff8ab4f8Meaning|r\n%s\n\n|cff8ab4f8Note|r\n%s",
+  resetNothing = "|cff888888(empty)|r",
+  harvestExport = "Export collected text",
+  -- Stands in for copyHint in the export box, and says the one thing copyHint
+  -- cannot: where the block is supposed to go. Everywhere else the copy box is
+  -- opened -- a word, a quest -- the player already knows what they wanted it
+  -- for. Here they pressed a button labelled "export" and got a wall of text,
+  -- and nothing else in the addon or its description names a destination.
+  harvestExportHint = "Ctrl+C copies the block — paste it in a CurseForge comment or a Discord message.",
+  harvestExportEmpty = "Nothing has been collected yet.\n\n"
+    .. "Switch on the box above and read a few quests, then come back.",
+  integratedLabel = "Integrated quest window",
+  harvestLabel = "Collect quest and NPC text for the dictionary project",
+  harvestNote = "Off by default. Records objectives, progress and hand-in text plus NPC dialogue you actually see — the passages Blizzard's quest API does not publish. Stored locally; %d passages and %d words no dictionary covers. Turning it off keeps what was collected until you export or /whw harvest clear.",
+  -- The recall check. Off by default like the harvest box: it changes what a
+  -- click does, and nobody who has not read about it should find their
+  -- meanings hidden behind a question.
+  recallLabel = "Ask for a 1–5 rating when a word in Learning for over a day is opened",
+  -- Both counts are filled in, because both are settable now. The sentence
+  -- used to spell "five" out in words, which stopped being true the moment the
+  -- slider below it moved -- and a note that contradicts the control directly
+  -- above it is worse than no note.
+  difficultNote = "%d difficult words so far — %d or more ratings with an average below 3.",
+  difficultMinLabel = "Call a word difficult after",
+  -- The unit is in the caption rather than beside the number, so the figure
+  -- the slider shows reads as a sentence: "after 20 ratings".
+  difficultMinValue = "%d ratings",
+  readyAfterLabel = "Offer Ready for Known after",
+  -- The fourteen days is named because it is the half a reader cannot see. Set
+  -- this to two and the label still will not appear on a word met yesterday,
+  -- and nothing on screen would say why.
+  readyAfterValue = "%d quests (and 14 days learning)",
+  difficultExport = "Export difficult words",
+  -- Like harvestExportHint: says where the block goes and what the columns
+  -- are, because a wall of tab-separated text explains neither.
+  difficultExportHint = "Ctrl+C copies the list — one word per line, tab-separated: word, meaning, note, example sentences, average, ratings. Paste it into a flashcard app.",
+  difficultExportEmpty = "No difficult words yet.\n\n"
+    .. "A word counts as difficult after %d or more ratings with an average below 3. Switch on the rating box above and keep reading quests.",
+  difficultWords = "Difficult words",
+  recallPrompt = "Before you read it — how well did you know this word?",
+  recallScale = "1 = no idea  •  5 = knew it at once  •  or press 1–5",
+  recallLater = "Not now",
+  recallSoFar = "Rated %d times so far, average %.1f",
+  recallHistory = "Recall %.1f (%d)",
+  englishHeader = "English",
+  enOfferOnly = "[Blizzard publishes no English text for this part of a quest. Showing the quest's opening text instead.]",
+  -- Classic quest records carry a title and an objective and no opening text at
+  -- all. Without this the objective sits alone under a paragraph of German and
+  -- reads as a translation that was cut short.
+  enNoOffer = "[No English opening text exists for this quest. Showing its objective.]",
+}
+
+Addon.BACKGROUNDS = {
+  tooltip = {
+    name = "Tooltip (Classic Dark)",
+    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    edgeSize = 16,
+    tile = true,
+    tileSize = 16,
+    insets = { left = 3, right = 3, top = 3, bottom = 3 },
+    bgColor = { 0.04, 0.06, 0.10, 0.94 },
+    readingColor = { 0.04, 0.06, 0.10 },
+  },
+  dialog = {
+    name = "Dialog (Parchment)",
+    bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+    edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+    edgeSize = 32,
+    tile = true,
+    tileSize = 32,
+    insets = { left = 11, right = 12, top = 12, bottom = 11 },
+    bgColor = { 1, 1, 1, 1 },
+    readingColor = { 0.10, 0.08, 0.06 },
+  },
+  solid = {
+    name = "Solid Dark",
+    bgFile = "Interface\\Buttons\\WHITE8X8",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    edgeSize = 12,
+    tile = false,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 },
+    bgColor = { 0.06, 0.07, 0.09, 0.96 },
+    readingColor = { 0.06, 0.07, 0.09 },
+  },
+  midnight = {
+    name = "Midnight (Modern)",
+    bgFile = "Interface\\Buttons\\WHITE8X8",
+    edgeFile = "Interface\\Buttons\\WHITE8X8",
+    edgeSize = 1,
+    insets = { left = 1, right = 1, top = 1, bottom = 1 },
+    bgColor = { 0.08, 0.09, 0.13, 0.97 },
+    readingColor = { 0.08, 0.09, 0.13 },
+    borderColor = { 0.22, 0.24, 0.34, 0.95 },
+  },
+}
+
+Addon.BACKGROUND_ORDER = { "tooltip", "dialog", "solid", "midnight" }
+
+-- What the panel wears before the player has chosen anything. Classic's whole
+-- interface is the old tooltip frame, so a panel in the same skin reads as part
+-- of the game next to a German quest rather than as something bolted on.
+--
+-- This is one function because it is needed in two places -- here, and where
+-- the database seeds its defaults -- and the two must not drift apart. They did
+-- once: the read side learned about Classic while the write side kept stamping
+-- "midnight" into the settings on first run, which made this branch unreachable.
+function Addon.DefaultBackgroundStyle()
+  if Addon.Compat and Addon.Compat.IsClassic() then return "tooltip" end
+  return "midnight"
+end
+
+function Addon.GetBackgroundStyle()
+  local key = WordHunterWoWDB and WordHunterWoWDB.settings and WordHunterWoWDB.settings.background
+  if key and Addon.BACKGROUNDS[key] then return key end
+  return Addon.DefaultBackgroundStyle()
+end
+
+function Addon.GetOpacity()
+  local v = WordHunterWoWDB and WordHunterWoWDB.settings and WordHunterWoWDB.settings.opacity
+  if type(v) == "number" and v >= 0 and v <= 1.0 then return v end
+  return 1.0
+end
+
+-- Text size, as a multiple of the game's own font.
+--
+-- The addon draws its own text rather than using Blizzard font objects
+-- directly, so the game's UI scale never reaches it and there was nothing the
+-- player could do about text that was simply too small.
+--
+-- One number per surface rather than one for all of them, because the surfaces
+-- cannot take the same treatment. The quest panel lays its words out itself and
+-- can grow its rows to match. The editor and the word list are built on frames
+-- with fixed heights, so their text has less room before it collides. And the
+-- English panel is a separate addon with its own window. One slider would have
+-- to be set for the tightest of them.
+--
+-- Bounded at both ends: below the floor the words stop being clickable targets,
+-- and above the ceiling a long quest no longer fits a window that can be
+-- dragged onto the screen.
+local TEXT_SCALE_MIN, TEXT_SCALE_MAX = 0.8, 2.0
+Addon.TEXT_SCALE_MIN, Addon.TEXT_SCALE_MAX = TEXT_SCALE_MIN, TEXT_SCALE_MAX
+
+local function scaleGetter(key)
+  return function()
+    local v = WordHunterWoWDB and WordHunterWoWDB.settings and WordHunterWoWDB.settings[key]
+    if type(v) == "number" and v >= TEXT_SCALE_MIN and v <= TEXT_SCALE_MAX then return v end
+    return 1.0
+  end
+end
+
+local function scaleSetter(key, after)
+  return function(value)
+    value = tonumber(value) or 1.0
+    if value < TEXT_SCALE_MIN then value = TEXT_SCALE_MIN end
+    if value > TEXT_SCALE_MAX then value = TEXT_SCALE_MAX end
+    if WordHunterWoWDB and WordHunterWoWDB.settings then
+      WordHunterWoWDB.settings[key] = value
+    end
+    if after then after() end
+    return value
+  end
+end
+
+Addon.TEXT_SCALE_KEYS = {
+  "textScale", "enPanelTextScale", "editorScale", "listScale", "statsScale",
+}
+
+-- The four jobs a piece of text does in this addon, and the one size each of
+-- them is. They exist because the surfaces did not agree with each other: the
+-- same kind of word was 12 in the quest panel, 10 in a word list row and the
+-- player's own chat-window size in the editor's boxes. That gap is there at
+-- 100%, so no slider could ever close it -- a multiplier lands on whatever
+-- base it is given, and the bases disagreed.
+--
+-- Sizes, not font objects. A Blizzard font object carries colour as well as
+-- size -- the Normal family is gold, Highlight is white, DisableSmall is grey
+-- -- so re-basing strings onto one shared object would silently recolour a
+-- dozen headings and labels, and nothing in the suite checks those colours.
+-- SetFont on top of the object a string already has moves the size and leaves
+-- the colour where it was, which is the move chromeFont has always made in the
+-- quest panel.
+--
+-- heading and label keep the sizes the surfaces already agreed on, so nothing
+-- on those two roles moves for anybody who has already chosen a size. Only
+-- body had three values, and it is the only one that moves. meta shares
+-- label's size and is named apart because what separates the two is colour.
+--
+-- Read off the client, never written down: each role names the Blizzard font
+-- object it has always been drawn from, and takes that object's size. A player
+-- who has turned the game's own font up keeps that, because the settings have
+-- always been a multiple of what the client draws with rather than a
+-- replacement for it. If a client has no such object, the role falls back to a
+-- ratio of the quest panel's own body font -- one anchor for the whole set --
+-- and only then to the number below. What the roles change is that there are
+-- four anchors where there were nine.
+Addon.TEXT_ROLE_RATIO = {
+  heading = 4 / 3,  -- 16 against a stock body of 12: the window's own name
+  body    = 1,      -- 12: text that is read rather than glanced at
+  label   = 5 / 6,  -- 10: the caption above a field
+  meta    = 5 / 6,  -- 10: the muted line beside it
+}
+
+Addon.FONT_ROLES = {
+  heading = { object = "GameFontNormalLarge", size = 16 },
+  body    = { object = "GameFontHighlight",   size = 12 },
+  label   = { object = "GameFontNormalSmall", size = 10 },
+  meta    = { object = "GameFontNormalSmall", size = 10 },
+}
+
+local function fontObjectSize(name)
+  local object = _G[name]
+  if type(object) == "table" and object.GetFont then
+    local _, size = object:GetFont()
+    if type(size) == "number" and size > 0 then return size end
+  end
+end
+
+function Addon.RoleSize(role, scale)
+  local spec = Addon.FONT_ROLES[role]
+  if not spec then return end
+  local size = fontObjectSize(spec.object)
+  if not size then
+    local anchor = fontObjectSize("GameFontHighlight")
+    size = anchor and anchor * (Addon.TEXT_ROLE_RATIO[role] or 1) or spec.size
+  end
+  return size * (tonumber(scale) or 1)
+end
+
+-- `scale` is the surface's own multiplier where the frame does not already
+-- carry one -- the quest panel, which sizes its letters rather than its window.
+-- A window that is SetScale'd whole passes nothing, because the frame does the
+-- multiplying for everything inside it.
+function Addon.ApplyFontRole(fs, role, scale)
+  local size = Addon.RoleSize(role, scale)
+  if not size or not fs or not fs.GetFont or not fs.SetFont then return end
+  local path, _, flags = fs:GetFont()
+  if not path then return end
+  fs:SetFont(path, size, flags)
+  return size
+end
+
+-- One height for every button this addon draws. The complaint named button
+-- sizes before it named letters, and it was right to: the editor's status
+-- buttons stood 26 high, the word list's filters 22, save and cancel 30 and
+-- the reset 24 -- four heights for two widgets, every one of them wrong at
+-- 100% and none of them reachable by any slider. Widths are left alone: a
+-- button is as wide as the word on it.
+--
+-- Off the body role rather than typed, for the same reason the roles are: 26
+-- is what the quest panel's chrome has always used against a stock 12, so a
+-- client drawing bigger gets buttons to match its letters.
+--
+-- Not applied to the button this addon hangs in Blizzard's own quest log. That
+-- one is a guest in someone else's window and should match its host, not us.
+function Addon.RoleButtonHeight(scale)
+  return math.floor(Addon.RoleSize("body", scale) * 13 / 6 + 0.5)  -- 26 at 12
+end
+
+-- Every window this addon owns that is scaled whole, and the key that sizes it.
+-- Which slider a key gets is SIZE_GROUPS below; this is only what to reach for
+-- once one has moved.
+Addon.SCALED_WINDOWS = {
+  { key = "enPanelTextScale", frame = function() return Addon.enPanel end },
+  { key = "editorScale",      frame = function() return Addon.editor end },
+  { key = "listScale",        frame = function() return Addon.listFrame end },
+  { key = "statsScale",       frame = function() return Addon.statsFrame end },
+}
+
+-- The two families of size setting, and the only place that knows which key is
+-- in which. The settings panel draws every size slider from this.
+--
+-- It is split because the word editor came up visibly bigger than the quest
+-- panel with both sliders reading the same number. Both halves of that are
+-- real, and neither is a fault in the scaling:
+--
+--   * The window. A font size leaves the frame the size the player dragged it
+--     to; SetScale multiplies the frame as well. So the editor grew and the
+--     panel did not, and that is deliberate -- the panel is sized to sit beside
+--     the game's own quest window, and the point of it is how much text fits.
+--
+--   * The letters. The surfaces draw from different Blizzard font objects: the
+--     quest words are GameFontHighlight at 12, the editor's boxes are the chat
+--     font and the word above them is 16, the list rows are 10. That gap is
+--     already there at 100% and survives any change of mechanism, so making
+--     every window scale the same way would not have closed it.
+--
+-- What was actually wrong was this panel: five sliders in one column, every one
+-- of them reading 80-200%, invite a comparison no arrangement of the code can
+-- honour. So they are two groups under headings that say what each one grows,
+-- and the text sizes are given as the point size the letters end up at.
+-- Different units is the part that stops the comparison; a heading alone still
+-- leaves two numbers side by side for the eye to match up.
+--
+-- The stored values are untouched -- the same keys, still 0.8 to 2.0 -- so
+-- nobody who has already chosen a size finds their windows have moved.
+Addon.SIZE_GROUPS = {
+  {
+    heading = "textGroupLabel", note = "textGroupNote", unit = "points",
+    entries = {
+      { key = "textScale",        label = "textScaleLabel" },
+      -- The one setting with two faces, so it is the one that gets a note. With
+      -- the integrated layout on, which is the default, it sizes the English
+      -- column inside the quest panel and no window moves; with it off, the
+      -- separate English window is scaled whole.
+      { key = "enPanelTextScale", label = "enPanelScaleLabel", note = "enPanelScaleNote" },
+    },
+  },
+  {
+    heading = "windowGroupLabel", note = "windowGroupNote", unit = "percent",
+    entries = {
+      { key = "editorScale", label = "editorScaleLabel" },
+      { key = "listScale",   label = "listScaleLabel" },
+      { key = "statsScale",  label = "statsScaleLabel" },
+    },
+  },
+}
+
+-- What a font at this multiple ends up as, taken from the font object the quest
+-- panel actually draws its words with -- so the figure under the slider is the
+-- number the panel passes to SetFont, and a player who has changed the game's
+-- font size sees their own scale rather than a stock one.
+function Addon.TextScalePoints(scale)
+  -- The body role is anchored to that same font object, so this is the figure
+  -- the panel passes to SetFont -- and now also the figure the editor boxes and
+  -- the word list rows end up at, which is the point of the roles.
+  return math.floor((Addon.RoleSize("body", scale) or 12) + 0.5)
+end
+
+-- The figure under a size slider, in the unit its group is measured in. Here
+-- rather than in the settings panel so a test can check the two families really
+-- do read differently without building the panel.
+--
+-- floor, not %d: rounding is the point, and %d truncating a float is a Lua 5.1
+-- courtesy the game happens to extend and 5.4 refuses outright, which kept the
+-- settings file out of the tests entirely.
+function Addon.FormatSizeValue(unit, scale)
+  if unit == "points" then
+    return string.format("%dpt", Addon.TextScalePoints(scale))
+  end
+  return string.format("%d%%", math.floor((tonumber(scale) or 1) * 100 + 0.5))
+end
+
+-- The clickable quest words, in both columns of the panel. This one is a font
+-- size rather than a window scale: the panel lays its words out itself, so it
+-- can give them more room without the window growing, and the point of that
+-- window is how much text fits in it.
+Addon.GetTextScale = scaleGetter("textScale")
+Addon.SetTextScale = scaleSetter("textScale", function()
+  -- Redraw at once: a size you cannot see until the next quest is a size you
+  -- cannot choose.
+  if Addon.refreshPanel and Addon.panel and Addon.panel:IsShown() then
+    Addon.refreshPanel()
+  end
+end)
+
+-- The other windows are scaled whole, with SetScale. It takes everything inside
+-- with it -- the labels, the buttons, the meaning and note boxes, the list rows
+-- and the space between them -- which is both simpler and safer than resizing
+-- font strings one at a time and then fixing every layout that assumed the old
+-- height. An earlier attempt did it the other way and missed the meaning field
+-- outright.
+function Addon.ApplyWindowScale(which)
+  for _, w in ipairs(Addon.SCALED_WINDOWS) do
+    if not which or which == w.key then
+      local frame = w.frame()
+      -- The English panel belongs to the other addon and scales itself, so ask
+      -- it rather than reaching into its frame.
+      if w.key == "enPanelTextScale" and frame and frame.ApplyTextScale then
+        frame.ApplyTextScale()
+      elseif frame and frame.SetScale then
+        local v = WordHunterWoWDB and WordHunterWoWDB.settings and WordHunterWoWDB.settings[w.key]
+        if type(v) ~= "number" or v < TEXT_SCALE_MIN or v > TEXT_SCALE_MAX then v = 1.0 end
+        frame:SetScale(v)
+      end
+      -- With the integrated layout on, this setting also draws the English
+      -- column inside the quest panel, and that column is laid out by this
+      -- addon rather than by the English window -- so nothing above has told it
+      -- anything. Without this the column and its heading kept their old size
+      -- until the next quest was read, which is a slider you drag and watch
+      -- half the panel answer.
+      if w.key == "enPanelTextScale" and Addon.refreshPanel
+        and Addon.panel and Addon.panel:IsShown() then
+        Addon.refreshPanel()
+      end
+    end
+  end
+end
+
+for _, w in ipairs(Addon.SCALED_WINDOWS) do
+  local key = w.key
+  Addon["Get" .. key:sub(1, 1):upper() .. key:sub(2)] = scaleGetter(key)
+  Addon["Set" .. key:sub(1, 1):upper() .. key:sub(2)] = scaleSetter(key, function()
+    Addon.ApplyWindowScale(key)
+  end)
+end
+
+-- How a word the player has already met is marked in the quest text. Both ways
+-- are defensible and neither is right for everyone: the underline alone keeps
+-- every letter the same colour, which reads like ordinary prose but is easy to
+-- miss at a glance, while the status colour is unmissable and turns the
+-- paragraph into four colours. So it is a choice rather than a decision.
+--
+-- Every status colour clears 4.5:1 on all four backgrounds -- the themes all
+-- put text on an opaque dark surface now -- which is what makes the coloured
+-- option offerable at all. tests/readability.test.lua holds that.
+Addon.WORD_MARKING_ORDER = { "both", "underline", "color" }
+Addon.WORD_MARKINGS = {
+  both      = { name = "Underline and text colour" },
+  underline = { name = "Underline only" },
+  color     = { name = "Text colour only" },
+}
+
+function Addon.GetWordMarking()
+  local v = WordHunterWoWDB and WordHunterWoWDB.settings and WordHunterWoWDB.settings.wordMarking
+  if Addon.WORD_MARKINGS[v] then return v end
+  return "both"
+end
+
+function Addon.SetWordMarking(value)
+  if not Addon.WORD_MARKINGS[value] then return end
+  if type(WordHunterWoWDB) ~= "table" then WordHunterWoWDB = {} end
+  if type(WordHunterWoWDB.settings) ~= "table" then WordHunterWoWDB.settings = {} end
+  WordHunterWoWDB.settings.wordMarking = value
+  if Addon.refreshPanel and Addon.panel and Addon.panel:IsShown() then Addon.refreshPanel() end
+end
+
+-- A one-pixel rule under twenty-four point letters is a smudge, and the quest
+-- text size goes to 200%. The mark has to grow with the text it belongs to, or
+-- turning the text up makes the words harder to read rather than easier.
+function Addon.UnderlineThickness(scale)
+  scale = tonumber(scale) or 1
+  return math.max(2, math.floor(scale * 2 + 0.5))
+end
+
+function Addon.GetIntegratedLayout()
+  local v = WordHunterWoWDB and WordHunterWoWDB.settings and WordHunterWoWDB.settings.integratedLayout
+  if v == nil then return true end
+  return v and true or false
+end
+
+function Addon.SetIntegratedLayout(value)
+  if type(WordHunterWoWDB) ~= "table" then WordHunterWoWDB = {} end
+  if type(WordHunterWoWDB.settings) ~= "table" then WordHunterWoWDB.settings = {} end
+  WordHunterWoWDB.settings.integratedLayout = not not value
+  if Addon.ApplyIntegratedLayout then Addon.ApplyIntegratedLayout() end
+  if Addon.OnIntegratedLayoutChanged then Addon.OnIntegratedLayoutChanged(Addon.GetIntegratedLayout()) end
+end
+
+function Addon.SetOpacity(value)
+  value = tonumber(value)
+  if not value then return end
+  value = math.max(0, math.min(1.0, value))
+  value = math.floor(value * 20 + 0.5) / 20
+  if type(WordHunterWoWDB) ~= "table" then WordHunterWoWDB = {} end
+  if type(WordHunterWoWDB.settings) ~= "table" then WordHunterWoWDB.settings = {} end
+  WordHunterWoWDB.settings.opacity = value
+  Addon.RefreshAllBackdrops()
+  if Addon.settingsPanel and Addon.settingsPanel:IsShown() and Addon.settingsPanel.refresh then
+    Addon.settingsPanel.refresh()
+  end
+end
+
+function Addon.GetTargetLocale()
+  local v = WordHunterWoWDB and WordHunterWoWDB.settings and WordHunterWoWDB.settings.targetLocale
+  if v and Addon.SUPPORTED_LOCALES[v] then return v end
+  local client = GetLocale and GetLocale() or "enUS"
+  if Addon.SUPPORTED_LOCALES[client] then return client end
+  -- German for a client this addon has no dictionary for, which is what
+  -- initializeDatabase writes into the settings for the same case. The two used
+  -- to disagree: this returned the client's own locale -- ruRU, koKR -- and the
+  -- comment here argued that German must not be assumed for a player who never
+  -- chose it.
+  --
+  -- The argument does not survive contact with what happens next. Once
+  -- initializeDatabase has run, the settings hold deDE anyway, so the
+  -- disagreement only ever showed in the window before it -- and what it did
+  -- there was worse than the thing it was avoiding: GetWordsTable builds
+  -- wordsByLocale[locale] on demand, so returning ruRU quietly created a word
+  -- table for a language with no dictionary behind it and left it in the saved
+  -- variables for good.
+  --
+  -- A German dictionary over Korean quest text highlights nothing, because no
+  -- German word is in it. It is useless, not harmful, and the player can pick a
+  -- language in the settings. A junk locale table on disk is neither.
+  return "deDE"
+end
+
+function Addon.SetTargetLocale(locale)
+  if not Addon.SUPPORTED_LOCALES[locale] then return end
+  if type(WordHunterWoWDB) ~= "table" then WordHunterWoWDB = {} end
+  if type(WordHunterWoWDB.settings) ~= "table" then WordHunterWoWDB.settings = {} end
+  WordHunterWoWDB.settings.targetLocale = locale
+  Addon.GetWordsTable()
+  Addon.rebuildExport()
+  if Addon.settingsPanel and Addon.settingsPanel.refresh then
+    Addon.settingsPanel.refresh()
+  end
+  if Addon.listFrame and Addon.listFrame:IsShown() then Addon.refreshWordList() end
+  if Addon.statsFrame and Addon.statsFrame:IsShown() then Addon.statsFrame:Hide() end
+  -- And the editor: it is open on a word of the old language, and both Save
+  -- and a rating write to whichever language is current when they happen.
+  if Addon.editor and Addon.editor:IsShown() then Addon.editor:Hide() end
+  if Addon.panel and Addon.panel:IsShown() and Addon.lastQuest then Addon.refreshPanel() end
+end
+
+function Addon.GetWordsTable()
+  local locale = Addon.GetTargetLocale()
+  if type(WordHunterWoWDB) ~= "table" then WordHunterWoWDB = {} end
+  if type(WordHunterWoWDB.wordsByLocale) ~= "table" then WordHunterWoWDB.wordsByLocale = {} end
+  if type(WordHunterWoWDB.wordsByLocale[locale]) ~= "table" then WordHunterWoWDB.wordsByLocale[locale] = {} end
+  -- Deliberately not aliased onto WordHunterWoWDB.words any more. In memory that
+  -- was one table under two names; on disk the saved-variables writer does not
+  -- preserve identity, so every word -- and its whole encounter set -- was
+  -- written out twice. Nothing has read that key since the pre-v8 migration,
+  -- which cannot run again.
+  return WordHunterWoWDB.wordsByLocale[locale]
+end
+
+Addon.DictionaryProviders = Addon.DictionaryProviders or {}
+Addon.DictionaryProviderOrder = Addon.DictionaryProviderOrder or {}
+
+function Addon.RegisterDictionaryProvider(locale, providerId, entries)
+  if not Addon.SUPPORTED_LOCALES[locale] or type(providerId) ~= "string" or type(entries) ~= "table" then return false end
+  if type(Addon.DictionaryProviders[locale]) ~= "table" then Addon.DictionaryProviders[locale] = {} end
+  if type(Addon.DictionaryProviderOrder[locale]) ~= "table" then Addon.DictionaryProviderOrder[locale] = {} end
+  if not Addon.DictionaryProviders[locale][providerId] then
+    Addon.DictionaryProviderOrder[locale][#Addon.DictionaryProviderOrder[locale] + 1] = providerId
+  end
+  Addon.DictionaryProviders[locale][providerId] = entries
+  if Addon.listFrame and Addon.listFrame:IsShown() and Addon.refreshWordList then Addon.refreshWordList() end
+  if Addon.panel and Addon.panel:IsShown() and Addon.lastQuest and Addon.refreshPanel then Addon.refreshPanel() end
+  return true
+end
+
+function Addon.GetDictionaryEntry(key, locale)
+  locale = locale or Addon.GetTargetLocale()
+  local providers = Addon.DictionaryProviders[locale]
+  local order = Addon.DictionaryProviderOrder[locale]
+  if not providers or not order then return nil end
+  for i = #order, 1, -1 do
+    local providerId = order[i]
+    local entry = providers[providerId] and providers[providerId][key]
+    if entry then return entry, providerId end
+  end
+end
+
+function Addon.GetEffectiveWord(key)
+  local user = Addon.GetWordsTable()[key]
+  if user then return user, false end
+  local dict, providerId = Addon.GetDictionaryEntry(key)
+  if not dict then return nil, false end
+  return {
+    word = dict.word or key,
+    status = (dict.status == "ignored" or dict.status == "known" or dict.status == "learning" or dict.status == "new") and dict.status or "new",
+    translation = dict.translation or "",
+    note = dict.note or "",
+    dictionaryProvider = providerId,
+    builtInDictionary = true,
+  }, true
+end
+
+local VALID_STATUS = { new = true, learning = true, known = true, ignored = true }
+
+-- Colour escape for a status, taken from the same table the word buttons use so
+-- the figure in the progress line always matches the words it counts.
+function Addon.ColorHex(status)
+  local c = Addon.COLORS[status] or Addon.COLORS.neutral
+  -- %x needs whole numbers, and the colour table holds fractions.
+  return string.format("|cff%02x%02x%02x",
+    math.floor(c[1] * 255 + 0.5), math.floor(c[2] * 255 + 0.5), math.floor(c[3] * 255 + 0.5))
+end
+
+-- How much of this quest the player has already dealt with, as three shares of
+-- the words in it.
+--
+-- Counts distinct words, not tokens: a quest that says "Zul'Farrak" nine times
+-- is one word to learn, and scoring it nine times would make a repetitive quest
+-- look better known than a varied one.
+--
+-- Ignored words are left out of the total entirely. The player has said that
+-- word is not worth learning, so counting it either as progress or as work
+-- remaining would both be wrong.
+--
+-- Percentages are rounded so they still add to 100. Rounding each independently
+-- gives 33/33/33 on an even split, and a progress line that does not add up
+-- reads as a bug even when every figure in it is right.
+function Addon.ProgressShares(counts)
+  local known = counts and counts.known or 0
+  local learning = counts and counts.learning or 0
+  local new = counts and counts.new or 0
+  local total = known + learning + new
+  if total <= 0 then return nil end
+  local parts = {
+    { key = "known", n = known },
+    { key = "learning", n = learning },
+    { key = "new", n = new },
+  }
+  local out, floored = {}, 0
+  for _, part in ipairs(parts) do
+    local exact = part.n * 100 / total
+    part.whole = math.floor(exact)
+    part.rest = exact - part.whole
+    floored = floored + part.whole
+    out[part.key] = part.whole
+  end
+  -- Hand the points lost to flooring to the largest remainders, biggest first.
+  local order = { parts[1], parts[2], parts[3] }
+  table.sort(order, function(a, b)
+    if a.rest == b.rest then return a.n > b.n end
+    return a.rest > b.rest
+  end)
+  local leftover = 100 - floored
+  local i = 1
+  while leftover > 0 do
+    local part = order[((i - 1) % #order) + 1]
+    out[part.key] = out[part.key] + 1
+    leftover = leftover - 1
+    i = i + 1
+  end
+  out.total = total
+  return out
+end
+
+function Addon.FormatProgress(counts)
+  local shares = Addon.ProgressShares(counts)
+  local L = Addon.LABELS
+  if not shares then return L.progressNothing end
+  local function tint(status, label, value)
+    return Addon.ColorHex(status) .. string.format(label, value) .. "|r"
+  end
+  return table.concat({
+    string.format(L.progressWords, shares.total),
+    tint("known", L.progressKnown, shares.known),
+    tint("learning", L.progressLearning, shares.learning),
+    tint("new", L.progressNew, shares.new),
+  }, "  ")
+end
+
+function Addon.EffectiveStatus(entry)
+  local status = entry and entry.status
+  if VALID_STATUS[status] then return status end
+  return "new"
+end
+
+-- Walks the player's words plus every dictionary entry without building a merged
+-- copy first. A locale pack ships ~74k entries, so materialising the merge — as
+-- GetEffectiveWords has to — allocates a table per entry every call, and the word
+-- list calls it on each keystroke in the search box.
+-- The callback gets the entry as stored; read its status through EffectiveStatus.
+function Addon.ForEachEffectiveWord(fn)
+  local locale = Addon.GetTargetLocale()
+  local providers = Addon.DictionaryProviders[locale] or {}
+  local order = Addon.DictionaryProviderOrder[locale] or {}
+  local user = Addon.GetWordsTable()
+  -- Later providers win, so walk backwards and keep the first hit. With a single
+  -- provider — the normal case — no bookkeeping table is needed at all.
+  local emitted = (#order > 1) and {} or nil
+  for index = #order, 1, -1 do
+    local providerId = order[index]
+    for key, entry in pairs(providers[providerId] or {}) do
+      if user[key] == nil and (emitted == nil or emitted[key] == nil) then
+        if emitted then emitted[key] = true end
+        fn(key, entry, true, providerId)
+      end
+    end
+  end
+  for key, entry in pairs(user) do fn(key, entry, false) end
+end
+
+function Addon.GetEffectiveWords()
+  local result = {}
+  Addon.ForEachEffectiveWord(function(key, entry, isDictionary, providerId)
+    if isDictionary then
+      result[key] = {
+        word = entry.word or key,
+        status = Addon.EffectiveStatus(entry),
+        translation = entry.translation or "",
+        note = entry.note or "",
+        dictionaryProvider = providerId,
+        builtInDictionary = true,
+      }
+    else
+      result[key] = entry
+    end
+  end)
+  return result
+end
+
+function Addon.ApplyBackground(frame, alphaOverride)
+  if not frame or not frame.SetBackdrop then return end
+  -- Windows you type into are deliberately opaque, whatever the opacity slider
+  -- says: reading your own note through the quest text behind it is not a
+  -- feature. Remembered on the frame, because the repaint that runs when the
+  -- slider moves has no idea who asked for what and used to discard it.
+  if alphaOverride then
+    frame.whwOpaque = alphaOverride
+  else
+    alphaOverride = frame.whwOpaque
+  end
+  local style = Addon.BACKGROUNDS[Addon.GetBackgroundStyle()] or Addon.BACKGROUNDS.midnight
+  frame:SetBackdrop({
+    bgFile = style.bgFile,
+    edgeFile = style.edgeFile,
+    edgeSize = style.edgeSize,
+    tile = style.tile,
+    tileSize = style.tileSize,
+    insets = style.insets,
+  })
+  local c = style.bgColor
+  local alpha = alphaOverride or Addon.GetOpacity()
+  frame:SetBackdropColor(c[1], c[2], c[3], alpha)
+  if style.borderColor then
+    local b = style.borderColor
+    frame:SetBackdropBorderColor(b[1], b[2], b[3], alpha)
+  end
+  -- Keep the skin and its opacity on the frame, but never let scenery or a
+  -- bright texture compete with letters. BACKGROUND sublevel 1 is above the
+  -- backdrop center and below text on both Retail and Classic.
+  if not frame.whwReadingBackground then
+    frame.whwReadingBackground = frame:CreateTexture(nil, "BACKGROUND", nil, 1)
+  end
+  local surface = frame.whwReadingBackground
+  local inset = style.insets or {}
+  surface:ClearAllPoints()
+  surface:SetPoint("TOPLEFT", frame, "TOPLEFT", inset.left or 0, -(inset.top or 0))
+  surface:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -(inset.right or 0), inset.bottom or 0)
+  local reading = style.readingColor or Addon.BACKGROUNDS.midnight.readingColor
+  surface:SetColorTexture(reading[1], reading[2], reading[3], 1)
+  frame:SetToplevel(true)
+end
+
+function Addon.SetBackgroundStyle(key)
+  if not Addon.BACKGROUNDS[key] then return end
+  if type(WordHunterWoWDB) ~= "table" then WordHunterWoWDB = {} end
+  if type(WordHunterWoWDB.settings) ~= "table" then WordHunterWoWDB.settings = {} end
+  WordHunterWoWDB.settings.background = key
+  Addon.RefreshAllBackdrops()
+end
+
+function Addon.RefreshAllBackdrops()
+  -- pairs, not ipairs: most of these are created the first time they are opened,
+  -- so the list has holes. ipairs stops at the first one, and the English panel
+  -- sits behind three lazily-created windows -- it never got its backdrop.
+  for _, f in pairs({ Addon.panel, Addon.editor, Addon.listFrame, Addon.statsFrame, Addon.copyDialog, Addon.confirmDialog, Addon.enPanel, Addon.settingsPanel and Addon.settingsPanel.preview }) do
+    if f and f.SetBackdrop then Addon.ApplyBackground(f) end
+  end
+end
+
+function Addon.trim(value)
+  return strtrim(tostring(value or ""))
+end
+
+local function stripMark(value, mark)
+  while value:sub(1, #mark) == mark do value = value:sub(#mark + 1) end
+  while value:sub(-#mark) == mark do value = value:sub(1, -#mark - 1) end
+  return value
+end
+
+-- Quest text arrives with its paragraphs in it. Both columns of the panel have
+-- to walk it the same way -- line by line, then word by word -- or the German
+-- and the English stop lining up with each other, which is the whole point of
+-- showing them side by side. Returned as a list of lines, each a list of words,
+-- so the walk can be checked on its own rather than only through the layout.
+function Addon.TextLines(text)
+  local body = tostring(text or "")
+  -- A trailing break ends the last line rather than starting an empty one
+  -- after it, which would leave a gap hanging under the text.
+  if body:sub(-1) ~= "\n" then body = body .. "\n" end
+  local lines = {}
+  for line in body:gmatch("([^\n]*)\n") do
+    local tokens = {}
+    for token in line:gmatch("%S+") do tokens[#tokens + 1] = token end
+    lines[#lines + 1] = tokens
+  end
+  return lines
+end
+
+-- Paragraph boundaries are a stronger alignment hint than sentence counts.
+function Addon.SplitParagraphs(text)
+  local paras = {}
+  local buf = {}
+  local body = tostring(text or "")
+  if body:sub(-1) ~= "\n" then body = body .. "\n" end
+  for line in body:gmatch("([^\n]*)\n") do
+    if Addon.trim(line) == "" then
+      if #buf > 0 then
+        paras[#paras + 1] = table.concat(buf, "\n")
+        buf = {}
+      end
+    else
+      buf[#buf + 1] = line
+    end
+  end
+  if #buf > 0 then paras[#paras + 1] = table.concat(buf, "\n") end
+  return paras
+end
+
+local ABBREVIATIONS = { ["dr."] = true, ["mr."] = true, ["mrs."] = true,
+  ["ms."] = true, ["z.b."] = true, ["d.h."] = true, ["bzw."] = true,
+  ["e.g."] = true, ["i.e."] = true }
+
+function Addon.SplitSentences(text)
+  text = tostring(text or "")
+  local out, spans = {}, {}
+  local first, last
+  local function finish()
+    if not first then return end
+    out[#out + 1] = text:sub(first, last)
+    spans[#spans + 1] = { start = first, finish = last }
+    first, last = nil, nil
+  end
+  -- Walk the very same tokens as the UI. Splitting inside 3.5 or counting a
+  -- closing quote as an extra token used to shift every button after it.
+  for start, token, after in text:gmatch("()(%S+)()") do
+    if last and text:sub(last + 1, start - 1):find("[\r\n]") then finish() end
+    first, last = first or start, after - 1
+    local ending = token:gsub('["\'>%)%]]+$', '')
+    for _, quote in ipairs({ "“", "”", "’", "»" }) do ending = stripMark(ending, quote) end
+    if (ending:find("[.!?]$") or ending:sub(-3) == "…")
+      and not ABBREVIATIONS[Addon.utf8Lower(ending)] then finish() end
+  end
+  finish()
+  return out, spans
+end
+
+-- One index per layout token, in the same order TextLines walks them. The click
+-- handler needs the sentence that token actually sits in -- searching the text
+-- for the word hits the first repeat instead.
+function Addon.TokenSentenceIndexes(text)
+  local indexes = {}
+  local _, spans = Addon.SplitSentences(text)
+  local si = 1
+  for start in tostring(text or ""):gmatch("()%S+") do
+    while spans[si] and start > spans[si].finish do si = si + 1 end
+    indexes[#indexes + 1] = si
+  end
+  return indexes
+end
+
+function Addon.SentenceContaining(text, word)
+  local needle = Addon.wordKey(word)
+  if needle == "" then return nil, nil end
+  local sentences = Addon.SplitSentences(text)
+  for i, sentence in ipairs(sentences) do
+    for token in sentence:gmatch("%S+") do
+      if Addon.wordKey(token) == needle then return i, sentence end
+    end
+  end
+  return nil, nil
+end
+
+local function uniqueGlossHit(enSentences, word)
+  local hit
+  for i, sentence in ipairs(enSentences) do
+    if next(Addon.MatchEnglishTokenIndexes(sentence, word)) then
+      if hit then return nil end
+      hit = i
+    end
+  end
+  return hit
+end
+
+local function mapSentenceIndex(deIndex, deCount, enCount)
+  -- ponytail: proportional fallback cannot align free translations; replace
+  -- with reviewed per-quest spans if exact alignment data becomes available.
+  if deCount == enCount then return deIndex end
+  local mapped = math.floor((deIndex - 1) / math.max(1, deCount) * enCount) + 1
+  return math.min(enCount, math.max(1, mapped))
+end
+
+local function locateSentence(text, globalIndex)
+  local paras = Addon.SplitParagraphs(text)
+  local seen = 0
+  for p, para in ipairs(paras) do
+    local n = #Addon.SplitSentences(para)
+    if globalIndex <= seen + n then
+      return p, globalIndex - seen
+    end
+    seen = seen + n
+  end
+  local last = #paras
+  if last == 0 then return 1, 1 end
+  return last, math.max(1, #Addon.SplitSentences(paras[last]))
+end
+
+local function matchInPair(deText, enText, word, deIndex)
+  local deSentences = Addon.SplitSentences(deText)
+  local enSentences = Addon.SplitSentences(enText)
+  if #enSentences == 0 then return nil, nil end
+  deIndex = math.min(#deSentences, math.max(1, deIndex or 1))
+  if #deSentences == #enSentences then
+    return deIndex, enSentences[deIndex]
+  end
+  -- A translator sometimes splits one German sentence into two English ones.
+  -- Position cannot tell which half was meant; the gloss can, but only inside
+  -- this pair -- never by searching the whole quest for the word.
+  if #deSentences == 1 and #enSentences > 1 then
+    local hit = uniqueGlossHit(enSentences, word)
+    if hit then return hit, enSentences[hit] end
+  end
+  local mapped = mapSentenceIndex(deIndex, math.max(1, #deSentences), #enSentences)
+  return mapped, enSentences[mapped]
+end
+
+function Addon.MatchEnglishSentence(deText, enText, word, deSentenceIndex)
+  deText, enText = tostring(deText or ""), tostring(enText or "")
+  word = tostring(word or "")
+  if enText == "" or Addon.trim(deText) == "" then return nil, nil end
+  if not deSentenceIndex then
+    -- Without an index the word is the only way in: it is what says which
+    -- German sentence is meant.
+    if Addon.wordKey(word) == "" then return nil, nil end
+    deSentenceIndex = select(1, Addon.SentenceContaining(deText, word))
+    if not deSentenceIndex then return nil, nil end
+  end
+  -- With an index the word is only a refinement, so it may be absent. The
+  -- voiceover asks this way: it knows the sentence it is reading and there is
+  -- no word being clicked.
+  local deParas = Addon.SplitParagraphs(deText)
+  local enParas = Addon.SplitParagraphs(enText)
+  local deSentences = Addon.SplitSentences(deText)
+  local enSentences = Addon.SplitSentences(enText)
+  if #enSentences == 0 then return nil, nil end
+  deSentenceIndex = math.min(math.max(1, deSentenceIndex), math.max(1, #deSentences))
+  if #deParas == #enParas and #deParas > 0 then
+    local pIndex, localIndex = locateSentence(deText, deSentenceIndex)
+    local mappedLocal, localSentence = matchInPair(deParas[pIndex], enParas[pIndex], word, localIndex)
+    if localSentence then
+      local seen = 0
+      for i = 1, pIndex - 1 do
+        seen = seen + #Addon.SplitSentences(enParas[i])
+      end
+      local gi = seen + (mappedLocal or 1)
+      if enSentences[gi] then return gi, enSentences[gi] end
+      return gi, localSentence
+    end
+  end
+  if #deSentences == #enSentences then
+    return deSentenceIndex, enSentences[deSentenceIndex]
+  end
+  local mapped = mapSentenceIndex(deSentenceIndex, #deSentences, #enSentences)
+  return mapped, enSentences[mapped]
+end
+
+function Addon.FlattenTokens(text)
+  local tokens = {}
+  for _, line in ipairs(Addon.TextLines(text)) do
+    for _, token in ipairs(line) do
+      tokens[#tokens + 1] = token
+    end
+  end
+  return tokens
+end
+
+-- One typo apart. Only for words long enough that a single letter cannot turn
+-- one word into another, and only behind a five-letter shared opening: that is
+-- what keeps refuge/refuse and head/heal apart while letting a hand-typed
+-- "invaluabel" still find "invaluable".
+local function withinOneEdit(a, b)
+  if #a < 6 or #b < 6 then return false end
+  if math.abs(#a - #b) > 1 then return false end
+  if a:sub(1, 5) ~= b:sub(1, 5) then return false end
+  local prefix = 0
+  while prefix < #a and prefix < #b and a:byte(prefix + 1) == b:byte(prefix + 1) do
+    prefix = prefix + 1
+  end
+  local suffix = 0
+  while suffix < #a - prefix and suffix < #b - prefix
+    and a:byte(#a - suffix) == b:byte(#b - suffix) do
+    suffix = suffix + 1
+  end
+  return (#a - prefix - suffix) <= 1 and (#b - prefix - suffix) <= 1
+end
+
+local function glossKeyMatches(enKey, glossKey, tolerant)
+  if enKey == "" or glossKey == "" then return false end
+  if enKey == glossKey then return true end
+  if #glossKey < 4 or #enKey < 4 then return false end
+  -- Only regular English endings, never arbitrary prefixes (head/headmaster).
+  if enKey == glossKey .. "s" then return true end
+  if glossKey:find("[sxz]$") or glossKey:find("[cs]h$") then
+    if enKey == glossKey .. "es" then return true end
+  elseif glossKey:find("[^aeiou]y$") and enKey == glossKey:sub(1, -2) .. "ies" then
+    return true
+  end
+  return tolerant and withinOneEdit(enKey, glossKey) or false
+end
+
+local function senseWords(sense)
+  local words = {}
+  for part in tostring(sense):gmatch("%S+") do
+    local key = Addon.wordKey(part)
+    if key ~= "" then words[#words + 1] = key end
+  end
+  return words
+end
+
+local function addSenses(packed, seen, translation)
+  translation = tostring(translation or "")
+  if Addon.trim(translation) == "" then return end
+  -- "(formal/pl.)" and the like are notes about the gloss, not words to find.
+  translation = translation:gsub("%b()", "")
+  for sense in translation:gmatch("[^;,/]+") do
+    sense = Addon.trim(sense):gsub("^to%s+", "")
+    local mark = Addon.utf8Lower(sense)
+    if sense ~= "" and not seen[mark] then
+      seen[mark] = true
+      packed[#packed + 1] = sense
+    end
+  end
+end
+
+function Addon.MatchEnglishTokenIndexes(enSentence, deWord, occurrence)
+  local tokens = Addon.FlattenTokens(enSentence)
+  if #tokens == 0 then return {} end
+  local key = Addon.wordKey(deWord)
+  local packed, seen = {}, {}
+  -- Every gloss anyone holds for this word, not only the one that wins the
+  -- lookup. GetEffectiveWord answers with the player's own entry whenever they
+  -- have saved one, which meant that editing the meaning -- rewording it, or
+  -- adding a single letter -- took the dictionary's wording out of the match
+  -- and the English word quietly stopped lighting up. An edit may add a way to
+  -- match; it must never remove one.
+  local own = Addon.GetWordsTable and Addon.GetWordsTable()[key]
+  if own then addSenses(packed, seen, own.translation) end
+  local dict = Addon.GetDictionaryEntry and Addon.GetDictionaryEntry(key)
+  if dict then addSenses(packed, seen, dict.translation) end
+  -- A proper noun is spelled the same in both languages and its gloss, when it
+  -- has one, is itself: Azshara stays Azshara.
+  if #key >= 3 then addSenses(packed, seen, deWord) end
+  local ranked = {}
+  for i, sense in ipairs(packed) do
+    ranked[i] = { sense = sense, words = senseWords(sense), i = i }
+  end
+  table.sort(ranked, function(a, b)
+    if #a.words ~= #b.words then return #a.words > #b.words end
+    if #a.sense ~= #b.sense then return #a.sense > #b.sense end
+    return a.i < b.i
+  end)
+  local function findHits(words, tolerant)
+    if #words == 0 then return {} end
+    local hits = {}
+    for i = 1, #tokens - #words + 1 do
+      local ok = true
+      for j, w in ipairs(words) do
+        if not glossKeyMatches(Addon.wordKey(tokens[i + j - 1]), w, tolerant) then
+          ok = false
+          break
+        end
+      end
+      if ok then hits[#hits + 1] = { start = i, len = #words } end
+    end
+    return hits
+  end
+  local function collect(tolerant)
+    local chosen, occupied = {}, {}
+    for _, item in ipairs(ranked) do
+      for _, hit in ipairs(findHits(item.words, tolerant)) do
+        local overlaps = false
+        for i = hit.start, hit.start + hit.len - 1 do
+          if occupied[i] then overlaps = true end
+        end
+        if not overlaps then
+          chosen[#chosen + 1] = hit
+          for i = hit.start, hit.start + hit.len - 1 do occupied[i] = true end
+        end
+      end
+    end
+    table.sort(chosen, function(a, b) return a.start < b.start end)
+    return chosen
+  end
+  local chosen = collect(false)
+  -- Second pass only when the sentence held nothing the gloss names exactly.
+  -- A near miss must never take a token away from an exact one.
+  if #chosen == 0 then chosen = collect(true) end
+  -- ponytail: occurrence order is only a hint across languages; do not clamp
+  -- a missing occurrence to a different word. Exact links need bilingual data.
+  local hit = chosen[occurrence or 1]
+  if not hit then return {} end
+  local set = {}
+  for i = hit.start, hit.start + hit.len - 1 do
+    set[i] = true
+  end
+  return set
+end
+
+function Addon.cleanWord(token)
+  local word = Addon.trim(token):gsub("^[%p]+", ""):gsub("[%p]+$", "")
+  for _, mark in ipairs({ "„", "“", "”", "‚", "‘", "’", "«", "»", "…", "–", "—", "¿", "¡" }) do
+    word = stripMark(word, mark)
+  end
+  return Addon.trim(word)
+end
+
+-- strlower only knows ASCII, so it leaves À Ä É Ñ Ü and the rest of the accented
+-- capitals untouched. Dictionary keys are folded with full Unicode rules, so an
+-- unfolded capital never matches and the word also gets its own list entry.
+-- Latin-1 Supplement capitals are C3 80..9E and lowercase to the same byte + 0x20;
+-- C3 97 in that range is the multiplication sign, not a letter.
+local LATIN_EXTRA_LOWER = {
+  ["Œ"] = "œ", ["Ÿ"] = "ÿ", ["Š"] = "š", ["Ž"] = "ž", ["Đ"] = "đ",
+}
+
+function Addon.utf8Lower(text)
+  text = tostring(text or "")
+  -- wordKey folds these to ss before lowercasing; search/sort go through here
+  -- alone, so without this "strasse" never finds Straße.
+  text = text:gsub("ẞ", "ss"):gsub("ß", "ss")
+  text = text:gsub("\195([\128-\158])", function(byte)
+    local code = string.byte(byte)
+    if code == 0x97 then return "\195" .. byte end
+    return "\195" .. string.char(code + 0x20)
+  end)
+  for upper, lower in pairs(LATIN_EXTRA_LOWER) do
+    text = text:gsub(upper, lower)
+  end
+  return strlower(text)
+end
+
+function Addon.wordKey(word)
+  local cleaned = Addon.cleanWord(word):gsub("ẞ", "ss"):gsub("ß", "ss")
+  return Addon.utf8Lower(cleaned)
+end
+
+local function encode(value)
+  -- Parenthesised: gsub also returns a replacement count, and an unparenthesised
+  -- call in the last slot of a table constructor would append it as a field.
+  return (tostring(value or ""):gsub("([^A-Za-z0-9_.~%-])", function(byte)
+    return string.format("%%%02X", string.byte(byte))
+  end))
+end
+
+function Addon.ensureHeadwordDefaults(entry, now)
+  if entry.status == nil then entry.status = "learning" end
+  if entry.statusChangedAt == nil then entry.statusChangedAt = entry.updatedAt or now end
+  if entry.translation == nil then entry.translation = "" end
+  if entry.note == nil then entry.note = "" end
+  if entry.noteUpdatedAt == nil then entry.noteUpdatedAt = 0 end
+  if entry.encounteredQuests == nil then entry.encounteredQuests = {} end
+  if entry.encounterCount == nil then entry.encounterCount = 0 end
+  if entry.firstSeenAt == nil then entry.firstSeenAt = entry.updatedAt or now end
+end
+
+function Addon.rebuildExport()
+  local words = Addon.GetWordsTable()
+  local keys = {}
+  for key in pairs(words) do keys[#keys + 1] = key end
+  table.sort(keys)
+  local rows = {}
+  for _, key in ipairs(keys) do
+    local item = words[key]
+    rows[#rows + 1] = table.concat({
+      encode(item.word),
+      item.status or "new",
+      tostring(item.statusChangedAt or item.updatedAt or 0),
+      tostring(item.updatedAt or 0),
+      encode(item.translation),
+      encode(item.note),
+      tostring(item.noteUpdatedAt or item.updatedAt or 0),
+      encode(item.context),
+      encode(item.questId),
+      encode(item.questTitle),
+      tostring(item.firstSeenAt or item.updatedAt or 0),
+      tostring(item.lastSeenAt or item.updatedAt or 0),
+      tostring(item.encounterCount or 0),
+    }, ",")
+  end
+  WordHunterWoWExport = "WHW3|" .. table.concat(rows, ";")
+  local target = Addon.GetTargetLocale()
+  WordHunterWoWLanguage = Addon.WH_LANGUAGE_MAP[target] or target
+end
+
+function Addon.initializeDatabase()
+  if type(WordHunterWoWDB) ~= "table" then WordHunterWoWDB = {} end
+  -- Only for the migration below to read; a fresh install does not get one, and
+  -- it is dropped once the migration has had its look.
+  local legacyWords = type(WordHunterWoWDB.words) == "table" and WordHunterWoWDB.words or nil
+  if type(WordHunterWoWDB.wordsByLocale) ~= "table" then WordHunterWoWDB.wordsByLocale = {} end
+  if type(WordHunterWoWDB.settings) ~= "table" then WordHunterWoWDB.settings = {} end
+  if type(WordHunterWoWDB.settings.frames) ~= "table" then WordHunterWoWDB.settings.frames = {} end
+  if not Addon.BACKGROUNDS[WordHunterWoWDB.settings.background] then
+    WordHunterWoWDB.settings.background = Addon.DefaultBackgroundStyle()
+  end
+  if type(WordHunterWoWDB.settings.opacity) ~= "number" or WordHunterWoWDB.settings.opacity < 0 or WordHunterWoWDB.settings.opacity > 1.0 then
+    WordHunterWoWDB.settings.opacity = 1.0
+  end
+  for _, key in ipairs(Addon.TEXT_SCALE_KEYS) do
+    local v = WordHunterWoWDB.settings[key]
+    if type(v) ~= "number" or v < TEXT_SCALE_MIN or v > TEXT_SCALE_MAX then
+      WordHunterWoWDB.settings[key] = 1.0
+    end
+  end
+  if WordHunterWoWDB.settings.integratedLayout == nil then
+    WordHunterWoWDB.settings.integratedLayout = true
+  end
+  if not Addon.SUPPORTED_LOCALES[WordHunterWoWDB.settings.targetLocale] then
+    local client = GetLocale and GetLocale() or "deDE"
+    if Addon.SUPPORTED_LOCALES[client] then
+      WordHunterWoWDB.settings.targetLocale = client
+    else
+      WordHunterWoWDB.settings.targetLocale = "deDE"
+    end
+  end
+  if (WordHunterWoWDB.version or 0) < 8 then
+    local hasPartitioned = false
+    for _, tbl in pairs(WordHunterWoWDB.wordsByLocale) do
+      if next(tbl) ~= nil then hasPartitioned = true; break end
+    end
+    if not hasPartitioned and legacyWords and next(legacyWords) ~= nil then
+      local target = WordHunterWoWDB.settings.targetLocale
+      if not WordHunterWoWDB.wordsByLocale[target] then WordHunterWoWDB.wordsByLocale[target] = {} end
+      for k, v in pairs(legacyWords) do
+        if type(v) == "table" and v.word then
+          WordHunterWoWDB.wordsByLocale[target][k] = v
+        end
+      end
+    end
+  end
+  if (WordHunterWoWDB.version or 0) < 9 then
+    local words = WordHunterWoWDB.wordsByLocale.deDE
+    if type(words) == "table" then
+      local migrations = {}
+      for key, entry in pairs(words) do
+        local normalized = strlower(tostring(key)):gsub("ẞ", "SS"):gsub("ß", "ss")
+        if normalized ~= key then migrations[#migrations + 1] = { key, normalized, entry } end
+      end
+      for _, migration in ipairs(migrations) do
+        local oldKey, newKey, entry = migration[1], migration[2], migration[3]
+        if not words[newKey] then words[newKey] = entry end
+        words[oldKey] = nil
+      end
+    end
+  end
+  if (WordHunterWoWDB.version or 0) < 10 then
+    -- Keys written before the Unicode fold kept their accented capitals, so
+    -- "Überfall" and "überfall" were two entries and only the second matched the
+    -- dictionary. Re-key every locale and merge the pairs back together.
+    for _, words in pairs(WordHunterWoWDB.wordsByLocale) do
+      if type(words) == "table" then
+        local migrations = {}
+        for key, entry in pairs(words) do
+          local normalized = Addon.wordKey(key)
+          if normalized ~= "" and normalized ~= key then
+            migrations[#migrations + 1] = { key, normalized, entry }
+          end
+        end
+        for _, migration in ipairs(migrations) do
+          local oldKey, newKey, entry = migration[1], migration[2], migration[3]
+          local existing = words[newKey]
+          if not existing then
+            words[newKey] = entry
+          elseif type(existing) == "table" and type(entry) == "table" then
+            -- Keep whichever side the player actually touched.
+            if (existing.status == nil or existing.status == "new") and entry.status then
+              existing.status = entry.status
+            end
+            if (existing.note == nil or existing.note == "") and entry.note then
+              existing.note = entry.note
+            end
+            if (existing.translation == nil or existing.translation == "") and entry.translation then
+              existing.translation = entry.translation
+            end
+          end
+          words[oldKey] = nil
+        end
+      end
+    end
+  end
+  if (WordHunterWoWDB.version or 0) < 11 and Addon.Compat and Addon.Compat.IsClassic() then
+    -- Earlier builds stamped "midnight" into the settings the first time they
+    -- ran, before this addon had a Classic default at all. On a Classic client
+    -- that value can only be that stamp and never a choice -- the addon has
+    -- never been released for Classic -- so clearing it is safe, and it lets
+    -- the Classic default actually reach the player it was written for.
+    if WordHunterWoWDB.settings.background == "midnight" then
+      WordHunterWoWDB.settings.background = Addon.DefaultBackgroundStyle()
+    end
+  end
+  Addon.GetWordsTable()
+  WordHunterWoWDB.version = 11
+  -- The legacy copy has served its purpose; carrying it costs a second full
+  -- write of every word at every logout.
+  WordHunterWoWDB.words = nil
+  Addon.rebuildExport()
+end
+
+Addon.LAYOUT_DEFAULTS = {
+  npc = {
+    panel = { point = "LEFT", relPoint = "LEFT", x = 420, y = 40, w = 720, h = 500 },
+    list = { point = "TOPRIGHT", relPoint = "TOPRIGHT", x = -16, y = -36, w = 420, h = 520 },
+    stats = { point = "TOPRIGHT", relPoint = "TOPRIGHT", x = -448, y = -36, w = 340, h = 420 },
+    editor = { point = "TOPRIGHT", relPoint = "TOPRIGHT", x = -448, y = -448, w = 430, h = 400 },
+  },
+  questlog = {
+    panel = { point = "RIGHT", relPoint = "RIGHT", x = -20, y = 40, w = 680, h = 500 },
+    list = { point = "TOPRIGHT", relPoint = "TOPRIGHT", x = -16, y = -36, w = 420, h = 500 },
+    stats = { point = "BOTTOMRIGHT", relPoint = "BOTTOMRIGHT", x = -16, y = 90, w = 340, h = 420 },
+    editor = { point = "CENTER", relPoint = "CENTER", x = 180, y = 50, w = 430, h = 400 },
+  },
+}
+
+function Addon.GetLayoutContext()
+  local Compat = Addon.Compat
+  if Compat and Compat.NpcQuestFrameShown and Compat.NpcQuestFrameShown() then return "npc" end
+  if Compat and Compat.QuestLogShown and Compat.QuestLogShown() then return "questlog" end
+  if QuestFrame and QuestFrame:IsShown() then return "npc" end
+  if WorldMapFrame and WorldMapFrame:IsShown() then return "questlog" end
+  return "npc"
+end
+
+function Addon.LayoutKey(base)
+  return tostring(base or "panel") .. ":" .. Addon.GetLayoutContext()
+end
+
+function Addon.PlaceFrame(frame, baseKey)
+  if not frame then return end
+  local def = Addon.LAYOUT_DEFAULTS[Addon.GetLayoutContext()][baseKey]
+  if not def then return end
+  Addon.RestoreFramePosition(frame, Addon.LayoutKey(baseKey), def.point, def.x, def.y, def.w, def.h)
+end
+
+function Addon.SaveFramePosition(frame, key)
+  if not frame or not key then return end
+  if not WordHunterWoWDB or not WordHunterWoWDB.settings then return end
+  if not WordHunterWoWDB.settings.frames then WordHunterWoWDB.settings.frames = {} end
+  local point, _, relPoint, x, y = frame:GetPoint(1)
+  if not point then return end
+  local w, h = frame:GetSize()
+  -- Updated in place rather than replaced. The entry also carries whether the
+  -- player picked this size by hand, and rebuilding the table dropped that
+  -- every time the window was moved.
+  local entry = WordHunterWoWDB.settings.frames[key]
+  if type(entry) ~= "table" then
+    entry = {}
+    WordHunterWoWDB.settings.frames[key] = entry
+  end
+  entry.point, entry.relPoint, entry.x, entry.y = point, relPoint, x, y
+  entry.w, entry.h = w, h
+end
+
+local ANCHORS = {
+  TOPLEFT = true, TOP = true, TOPRIGHT = true, LEFT = true, CENTER = true,
+  RIGHT = true, BOTTOMLEFT = true, BOTTOM = true, BOTTOMRIGHT = true,
+}
+
+-- Sizes a window can actually be dragged back from. A saved 1x1 is as
+-- unrecoverable as a saved 6000x6000.
+local MIN_SAVED_SIZE, MAX_SAVED_SIZE = 80, 4000
+
+local function usableFrameData(data)
+  if type(data) ~= "table" then return false end
+  if not ANCHORS[data.point] then return false end
+  if data.relPoint ~= nil and not ANCHORS[data.relPoint] then return false end
+  if type(data.x) ~= "number" or type(data.y) ~= "number" then return false end
+  if type(data.w) ~= "number" or type(data.h) ~= "number" then return false end
+  if data.w < MIN_SAVED_SIZE or data.h < MIN_SAVED_SIZE then return false end
+  if data.w > MAX_SAVED_SIZE or data.h > MAX_SAVED_SIZE then return false end
+  return true
+end
+
+-- Puts every window back where it started. Reachable as /whw reset, because a
+-- window dragged off the edge of the screen cannot be dragged back, and neither
+-- can one saved at its minimum size on a client with no resize bounds.
+function Addon.ResetLayout()
+  if WordHunterWoWDB and WordHunterWoWDB.settings then
+    WordHunterWoWDB.settings.frames = {}
+  end
+  for _, entry in pairs({
+    { frame = Addon.panel, key = "panel" },
+    { frame = Addon.editor, key = "editor" },
+    { frame = Addon.listFrame, key = "list" },
+    { frame = Addon.statsFrame, key = "stats" },
+    { frame = Addon.enPanel, key = "enPanel" },
+  }) do
+    if entry.frame then Addon.PlaceFrame(entry.frame, entry.key) end
+  end
+  if print then print("|cff59aefaWordHunterWoW:|r window positions and sizes reset") end
+end
+
+function Addon.RestoreFramePosition(frame, key, defaultPoint, defaultX, defaultY, defaultW, defaultH)
+  local data = WordHunterWoWDB and WordHunterWoWDB.settings and WordHunterWoWDB.settings.frames and WordHunterWoWDB.settings.frames[key]
+  -- Checked for shape, not just presence. These values are restored while the
+  -- addon is loading, so a bad one does not merely misplace a window: SetPoint
+  -- throws, ADDON_LOADED dies with it, and the editor, the quest hooks and the
+  -- settings panel are never built. The addon is gone for the session, and the
+  -- only recovery would be deleting the saved file -- which takes the player's
+  -- whole word list with it.
+  if usableFrameData(data) then
+    frame:ClearAllPoints()
+    frame:SetPoint(data.point, UIParent, data.relPoint or data.point, data.x, data.y)
+    frame:SetSize(data.w, data.h)
+    return true
+  end
+  if defaultPoint then
+    frame:ClearAllPoints()
+    frame:SetPoint(defaultPoint, UIParent, defaultPoint, defaultX or 0, defaultY or 0)
+  end
+  if defaultW and defaultH then
+    frame:SetSize(defaultW, defaultH)
+  end
+  return false
+end
+
+function Addon.MakeResizable(frame, key, minW, minH, maxW, maxH)
+  if not frame then return end
+  frame:SetResizable(true)
+  if frame.SetResizeBounds then
+    frame:SetResizeBounds(minW, minH, maxW, maxH)
+  else
+    -- Classic has no SetResizeBounds; it is the one call that replaced these
+    -- two. Guarding it without a fallback left the window with no limits at
+    -- all there, so it could be dragged down to nothing or out past the screen
+    -- and there was no way back short of resetting the layout. That is what
+    -- "hard to resize" turns out to mean.
+    if frame.SetMinResize then frame:SetMinResize(minW, minH) end
+    if frame.SetMaxResize then frame:SetMaxResize(maxW, maxH) end
+  end
+  if not frame.resizeHandle then
+    local handle = CreateFrame("Button", nil, frame)
+    handle:SetSize(16, 16)
+    handle:SetPoint("BOTTOMRIGHT", -4, 4)
+    handle:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    handle:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+    handle:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+    -- Drag scripts, not OnMouseDown/OnMouseUp.
+    --
+    -- The corner stops when the size hits a bound or the frame reaches the edge
+    -- of the screen, while the cursor carries on -- so on most real drags the
+    -- cursor ends up somewhere off this 16px grip. OnMouseUp is only delivered
+    -- to the button the cursor is actually over, so releasing there never
+    -- reached StopMovingOrSizing and the frame was left in sizing mode: it went
+    -- on following the cursor with the button up, which is the window growing
+    -- and shrinking on its own and dropping clicks. OnDragStop is delivered to
+    -- the frame that started the drag wherever the cursor has got to.
+    handle:RegisterForDrag("LeftButton")
+    local dragging = false
+    local function stopSizing()
+      frame:StopMovingOrSizing()
+      Addon.SaveFramePosition(frame, Addon.LayoutKey(key))
+      if not dragging then return end
+      dragging = false
+      -- The player has chosen a size, so nothing should size this frame for
+      -- them again. Recorded when it happens rather than worked out later from
+      -- a saved size: every frame has a saved size, including ones only ever
+      -- moved, and including the ones the addon sized itself.
+      local frames = WordHunterWoWDB and WordHunterWoWDB.settings
+        and WordHunterWoWDB.settings.frames
+      local saved = frames and frames[Addon.LayoutKey(key)]
+      if saved then saved.userSized = true end
+    end
+    handle:SetScript("OnDragStart", function()
+      dragging = true
+      frame:StartSizing("BOTTOMRIGHT")
+    end)
+    handle:SetScript("OnDragStop", stopSizing)
+    -- Two backstops, neither redundant. A press with no drag never starts
+    -- sizing, but stopping costs nothing. And a frame hidden mid-drag -- Escape,
+    -- or the quest window closing under it -- would otherwise still be sizing
+    -- when it came back.
+    handle:SetScript("OnMouseUp", stopSizing)
+    frame:HookScript("OnHide", function() stopSizing() end)
+    frame:HookScript("OnSizeChanged", function(self)
+      if self:IsShown() then
+        Addon.SaveFramePosition(self, Addon.LayoutKey(key))
+      end
+    end)
+    frame.resizeHandle = handle
+  end
+end
+
+-- Enough to cover the quests a word realistically appears in within one zone,
+-- and small enough that a full word list stays a few hundred kilobytes.
+local MAX_ENCOUNTERED_QUESTS = 200
+
+local function questEncounterKey(questId, questTitle)
+  local id = tostring(questId or "")
+  if id ~= "" and id ~= "0" then return "id:" .. id end
+  local title = Addon.utf8Lower(Addon.trim(questTitle))
+  if title ~= "" then return "title:" .. title end
+end
+
+function Addon.recordEncounter(item, questId, questTitle, now)
+  item.firstSeenAt = item.firstSeenAt or item.updatedAt or now
+  item.lastSeenAt = now
+  item.encounterCount = tonumber(item.encounterCount) or 0
+  if type(item.encounteredQuests) ~= "table" then item.encounteredQuests = {} end
+  local questKey = questEncounterKey(questId, questTitle)
+  if questKey and not item.encounteredQuests[questKey] then
+    item.encounteredQuests[questKey] = true
+    item.encounterCount = item.encounterCount + 1
+    -- The set exists only to stop the count double-counting a quest read twice.
+    -- It is never exported and never shown. Kept without a bound it grows one
+    -- key per quest for every common word, forever, and is re-parsed at every
+    -- login -- megabytes of ["id:12345"]=true for a number the player sees as
+    -- "seen 40 times". Past the cap the count keeps rising and only the memory
+    -- of exactly which quests stops; re-reading an old quest may then add one,
+    -- which is a far smaller error than the file it saves.
+    local seen = 0
+    for _ in pairs(item.encounteredQuests) do seen = seen + 1 end
+    if seen > MAX_ENCOUNTERED_QUESTS then
+      item.encounteredQuests = { [questKey] = true }
+    end
+    return true
+  end
+  return false
+end
+
+function Addon.CloseAll()
+  local closed = false
+  for _, key in ipairs({ "panel", "editor", "listFrame", "statsFrame", "copyDialog", "enPanel", "confirmDialog" }) do
+    local frame = Addon[key]
+    if frame and frame.IsShown and frame:IsShown() then
+      frame:Hide()
+      if frame == Addon.editor and frame.ClearFocus then pcall(function() frame:ClearFocus() end) end
+      closed = true
+    end
+  end
+  if Addon.settingsPanel and Addon.settingsPanel:IsShown() then
+    Addon.settingsPanel:Hide()
+    closed = true
+  end
+  return closed
+end
+
+-- SetPropagateKeyboardInput is protected: calling it from an addon while the
+-- player is in combat raises ADDON_ACTION_BLOCKED and swallows the keystroke.
+-- Taking a quest from an NPC that turns hostile is enough to be in combat with
+-- the panel still open.
+local function SafePropagate(frame, propagate)
+  if InCombatLockdown and InCombatLockdown() then return end
+  if frame.SetPropagateKeyboardInput then frame:SetPropagateKeyboardInput(propagate) end
+end
+-- Shared with the editor's rating cover, which takes keys of its own and has
+-- the same combat rule to respect.
+Addon.SafePropagate = SafePropagate
+
+function Addon.SetupEscapeClose(frame)
+  if not frame or not frame.GetName then return end
+  local name = frame:GetName()
+  if name and not tContains(UISpecialFrames, name) then
+    tinsert(UISpecialFrames, name)
+  end
+  frame:EnableKeyboard(true)
+  SafePropagate(frame, true)
+  frame:HookScript("OnKeyDown", function(self, key)
+    if key == "ESCAPE" then
+      SafePropagate(self, false)
+      Addon.CloseAll()
+    else
+      SafePropagate(self, true)
+    end
+  end)
+end

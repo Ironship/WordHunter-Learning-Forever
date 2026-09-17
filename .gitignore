@@ -1,0 +1,9 @@
+# The archives are release assets, not tracked files: two of them are over
+# 600 MB and GitHub refuses a tracked file above 100 MB.
+packages/
+*.zip
+*.partial
+__pycache__/
+.DS_Store
+Thumbs.db
+desktop.ini

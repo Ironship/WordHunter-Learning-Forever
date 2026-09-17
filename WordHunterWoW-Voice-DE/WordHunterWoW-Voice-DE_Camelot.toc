@@ -1,0 +1,14 @@
+## Interface: 16001
+## Title: QuestWordHunter - German Voiceover
+## Notes: Reads German quest text and single words aloud. Works on its own, and adds a play button to each paragraph if QuestWordHunter is installed too. Needs the separate sound packs.
+## IconTexture: Interface\AddOns\WordHunterWoW-Voice-DE\icon
+## Author: Ironship
+## Version: 1.1.1
+## SavedVariables: WordHunterWoWVoiceDB
+## OptionalDeps: WordHunterWoW
+
+Naming.lua
+Talker.lua
+Voice.lua
+PlayButtons.lua
+Settings.lua

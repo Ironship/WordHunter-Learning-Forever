@@ -1,0 +1,16 @@
+WordHunter Learning for World of Warcraft: Forever (wow_classic_beta)
+manifest suffix _Camelot, ## Interface: 16001
+built 2026-09-17 16:42
+
+WordHunterWoW 1.19.4  (v1.19.4, d53ae74254)  16 files, 0.3 MB
+    WordHunterWoW-1.19.4-Forever.zip  0.1 MB  sha256 64533b0de2114e4330b96b8e0f96cf0ac24a47947037eb90cb275a19e169fae5
+WordHunterWoW-ENPanel 1.6.3  (v1.6.3, e283b71d8e)  13 files, 0.8 MB
+    WordHunterWoW-ENPanel-1.6.3-Forever.zip  0.2 MB  sha256 7ddcd278a45edd222a8781f73269ed1cb3bad8cf31b72c6524afb509f11682c8
+WordHunterWoW-Dictionary-DE 1.5.0  (v1.5.0, ccebcd6368)  8 files, 15.4 MB
+    WordHunterWoW-Dictionary-DE-1.5.0-Forever.zip  3.0 MB  sha256 1c8da817d472cdb2a846526f55bfc431ead024cd5f70c907d2cb20ddd11e7dec
+WordHunterWoW-Voice-DE 1.1.1  (v1.1.1-3-g9d948cb, 9d948cb93e)  13 files, 0.2 MB
+    WordHunterWoW-Voice-DE-1.1.1-Forever.zip  0.1 MB  sha256 20848d5404eefd8b58d734050cd1ca16a45eab8d0fcc255aa92960edaaa9992c
+WordHunterWoW-Voice-DE-Classic 1.0.2  (v1.0.2, b2fa659bde)  25241 files, 617.7 MB
+    WordHunterWoW-Voice-DE-Classic-1.0.2-Forever.zip  622.0 MB  sha256 44883f8a099842a410c818424e847deb95e05bc4e5700452fcd611de789f7d1a
+WordHunterWoW-Voice-DE-Words 1.0.6  (v1.0.6, 41f3c1afc8)  104281 files, 766.3 MB
+    WordHunterWoW-Voice-DE-Words-1.0.6-Forever.zip  786.0 MB  sha256 5ba58b84c3e7a66a74c928887dec493ceb2c7099582faaba05ba0dd89adec076
