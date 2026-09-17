@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: QuestWordHunter - German Voiceover: Words
+## Notes: German audio for single dictionary words. Needs WordHunterWoW-Voice-DE.
+## IconTexture: Interface\AddOns\WordHunterWoW-Voice-DE-Words\icon
+## Author: Ironship
+## Version: 1.0.6
+## Dependencies: WordHunterWoW-Voice-DE, WordHunterWoW
+
+Part.lua
