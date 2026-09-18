@@ -37,8 +37,26 @@ HERE = Path(__file__).resolve().parent
 WORKSPACE = HERE.parent
 PACKAGES = HERE / "packages"
 
-INTERFACE = "16001"
-SUFFIX = "Camelot"
+# Every game these packages are meant to load on, Forever's 16001 among them,
+# in one line.
+#
+# This used to be "16001" alone, written into a <Addon>_Camelot.toc beside a
+# plain one, on the reading that Forever's loader looks for that suffix. Nothing
+# ever confirmed it, and on 2026-09-18 the client disagreed in the only way that
+# matters: WordHunterWoW's saved variables were written on every logout and
+# never read back, so words marked in one session were gone after a reload, and
+# Compat could not read its own manifest either -- it answered "retail" on a
+# build carrying the fix for exactly that.
+#
+# What the client's own working addons do, counted rather than assumed: of the
+# eleven addons installed there, every one that works ships a SINGLE manifest,
+# and the two known good -- AllTheThings and Auctionator -- carry a
+# comma-separated Interface list with 16001 in it. Not one uses the suffix.
+INTERFACE = "11509, 16001, 20506, 30405, 40402, 50504, 120100"
+# Kept only as the codename this build is for. Nothing is named after it any
+# more: the suffixed manifest it used to produce is what stopped the client
+# reading these addons' saved variables.
+CODENAME = "Camelot"
 FLAVOR = "Forever"
 CLIENT = Path(r"C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns")
 
@@ -187,10 +205,13 @@ def write_zip(addon, version, repo, files, manifest):
             arc = "%s/%s" % (addon, rel)
             z.write(src, arc, compress_type=method)
             expected[arc] = src.stat().st_size
-        for name in ("%s_%s.toc" % (addon, SUFFIX), "%s.toc" % addon):
-            arc = "%s/%s" % (addon, name)
-            z.writestr(arc, manifest, compress_type=zipfile.ZIP_DEFLATED)
-            expected[arc] = len(manifest)
+        # One manifest, named as the folder is. The suffixed second copy is
+        # gone: two manifests for one addon is the arrangement no working addon
+        # on this client uses, and it is the only structural difference between
+        # these packages and the ones that load their saved variables.
+        arc = "%s/%s.toc" % (addon, addon)
+        z.writestr(arc, manifest, compress_type=zipfile.ZIP_DEFLATED)
+        expected[arc] = len(manifest)
     # A listing cannot tell a truncated archive from a good one; reopening it
     # and reading every member can.
     with zipfile.ZipFile(partial) as z:
@@ -215,13 +236,11 @@ def write_tree(addon, repo, files, manifest, root):
         dst = target / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(repo / rel, dst)
-    for name in ("%s_%s.toc" % (addon, SUFFIX), "%s.toc" % addon):
-        (target / name).write_bytes(manifest)
+    (target / ("%s.toc" % addon)).write_bytes(manifest)
     # Every staged file, and nothing else, at the same size.
     on_disk = {p.relative_to(target).as_posix(): p.stat().st_size
                for p in target.rglob("*") if p.is_file()}
     wanted = {rel: (repo / rel).stat().st_size for rel in files}
-    wanted["%s_%s.toc" % (addon, SUFFIX)] = len(manifest)
     wanted["%s.toc" % addon] = len(manifest)
     if on_disk != wanted:
         extra = sorted(set(on_disk) - set(wanted))[:5]
@@ -253,7 +272,7 @@ def main():
         args.out.mkdir(parents=True, exist_ok=True)
 
     report = ["WordHunter Learning for World of Warcraft: Forever (wow_classic_beta)",
-              "manifest suffix _%s, ## Interface: %s" % (SUFFIX, INTERFACE),
+              "one manifest per addon, ## Interface: %s" % INTERFACE,
               "built %s" % time.strftime("%Y-%m-%d %H:%M"), ""]
     for addon in chosen:
         started = time.time()
