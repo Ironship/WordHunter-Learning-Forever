@@ -52,7 +52,7 @@ PACKAGES = HERE / "packages"
 # eleven addons installed there, every one that works ships a SINGLE manifest,
 # and the two known good -- AllTheThings and Auctionator -- carry a
 # comma-separated Interface list with 16001 in it. Not one uses the suffix.
-INTERFACE = "11509, 16001, 20506, 30405, 40402, 50504, 120100"
+INTERFACE = "11509, 16001, 20506, 30405, 40402, 50504, 120100, 120105"
 # Kept only as the codename this build is for. Nothing is named after it any
 # more: the suffixed manifest it used to produce is what stopped the client
 # reading these addons' saved variables.
