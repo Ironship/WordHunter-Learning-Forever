@@ -106,9 +106,13 @@ Built from: [WordHunterWoW](https://github.com/Ironship/WordHunterWoW),
 
 ## Licences
 
+This repository's own files (`build_forever.py`, this README, `BUILD-INFO.txt`)
+and the `WordHunterWoW` folder are MIT, see `LICENSE`.
+
 Each addon folder carries its own `LICENSE` and, where it ships third-party
 data, a `NOTICE`; those are the terms, unchanged from the source repositories.
-The English panel, the dictionary and the voiceover are GPL v3. The audio is
+The English panel, the dictionary and the voiceover are GPL v3: they carry
+data derived from Questie, and each folder's `NOTICE` says what. The audio is
 CC BY-NC 4.0: it is given away and may not be sold.
 
 ## The step after this one
