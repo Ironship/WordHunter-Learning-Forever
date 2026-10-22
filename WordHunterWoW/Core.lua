@@ -1645,6 +1645,7 @@ function Addon.SetupEscapeClose(frame)
   if name and not tContains(UISpecialFrames, name) then
     tinsert(UISpecialFrames, name)
   end
+  if Addon.AttachGamePad then Addon.AttachGamePad(frame) end
   frame:EnableKeyboard(true)
   SafePropagate(frame, true)
   frame:HookScript("OnKeyDown", function(self, key)

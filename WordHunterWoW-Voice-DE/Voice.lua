@@ -1,34 +1,37 @@
-local ADDON_NAME = ...
+local ADDON_NAME = ... or "WordHunterWoW-Voice-DE"
 local Addon = WordHunterWoW_Voice or {}
 WordHunterWoW_Voice = Addon
+-- Every file of the engine opens with these two lines; Naming.lua says why.
+if Addon.host == nil and Addon.ForgetParts == nil then Addon.host = ADDON_NAME end
+if Addon.host ~= ADDON_NAME then return end
 
--- The engine. It holds no audio: the clips live in the data addons, which are
--- separate downloads because the whole pack does not fit in one.
+-- The engine. It holds no audio: the clips live in the sound packs, which are
+-- separate downloads because the whole does not fit in one -- and every pack
+-- carries a copy of these files, so that one pack is a whole install. Naming.lua
+-- says how the copies settle which of them runs.
 --
 -- Nothing here builds an index of what exists. A clip is found by computing its
 -- name (Naming.lua) and asking the client to play it; a clip that has not been
 -- generated yet simply does not play. That is what lets the pack ship
 -- incomplete and grow, instead of having to be finished before it is useful.
 
--- The folder this addon is loaded from, asked of the client rather than written
--- down. It used to be the literal "WordHunterWoW-Voice-DE", which is what the
--- CurseForge package is called and so was right for everyone who installed it
--- that way. A GitHub "Download ZIP" unpacks to WordHunterWoW-Voice-DE-main,
--- and then ADDON_LOADED never matched: no hooks, no play buttons, no settings
--- panel, and nothing anywhere to say why. The other two addons in this suite
--- take the name from the client already.
---
--- The written-down name stays as the fallback for the one case the client
--- cannot answer: a file run outside the addon loader, which is how the tests
--- run it.
-local ENGINE = ADDON_NAME or "WordHunterWoW-Voice-DE"
+-- The folder this engine is running from, asked of the client rather than
+-- written down. It is a sound pack's folder now -- whichever pack's copy got to
+-- run -- and before the packs carried the engine it was whatever the stand-alone
+-- folder was called, which was not always "WordHunterWoW-Voice-DE": a GitHub
+-- "Download ZIP" unpacks to WordHunterWoW-Voice-DE-main, and with the name
+-- written down ADDON_LOADED never matched -- no hooks, no play buttons, no
+-- settings panel, and nothing anywhere to say why. The written-down name is
+-- the fallback for the one case the client cannot answer: a file run outside
+-- the addon loader, which is how the tests run it (Naming.lua supplies it).
+local ENGINE = ADDON_NAME
 
 -- QuestWordHunter, the addon this one hooks into when it is there. Named
 -- because the load order is not something this addon can take on trust -- see
 -- the ADDON_LOADED handler.
 local BASE_ADDON = "WordHunterWoW"
 
--- Filled in by each data addon as it loads. A player who installed parts 1 and
+-- Filled in by each sound pack as it loads. A player who installed parts 1 and
 -- 3 gets the quests those parts cover and silence for the rest, rather than an
 -- error or a refusal to load.
 WordHunterWoW_Voice_Parts = WordHunterWoW_Voice_Parts or {}
@@ -36,12 +39,36 @@ WordHunterWoW_Voice_Parts = WordHunterWoW_Voice_Parts or {}
 local playing
 
 local function settings()
-  WordHunterWoWVoiceDB = WordHunterWoWVoiceDB or {}
+  if type(WordHunterWoWVoiceDB) ~= "table" then WordHunterWoWVoiceDB = {} end
   local db = WordHunterWoWVoiceDB
   if db.enabled == nil then db.enabled = true end
   if db.words == nil then db.words = true end
   if db.channel == nil then db.channel = "Dialog" end
   return db
+end
+
+-- Every pack carries the engine, so every pack's manifest names this addon's
+-- saved variable, and the client loads the variable once per installed pack --
+-- each load a copy of the same table, written at the last logout, replacing the
+-- one before it. Copies of one table are harmless. The exception is a pack that
+-- sat uninstalled while settings changed and then came back: its copy is older,
+-- and loaded after a newer one it would win by arriving last. So each logout
+-- stamps the table, and as the copies arrive the newest stamp is the one kept.
+-- A table with no stamp is from before there was one, and counts as oldest.
+local newest
+local function keepNewestSettings()
+  local db = WordHunterWoWVoiceDB
+  if type(db) ~= "table" then
+    -- A file holding something that is not a table is not a copy of anything;
+    -- the last good copy stands, and with none yet settings() starts afresh.
+    if newest then WordHunterWoWVoiceDB = newest end
+    return
+  end
+  if newest and newest ~= db and (tonumber(newest.saved) or 0) > (tonumber(db.saved) or 0) then
+    WordHunterWoWVoiceDB = newest
+  else
+    newest = db
+  end
 end
 
 function Addon.GetEnabled() return settings().enabled and true or false end
@@ -52,6 +79,12 @@ end
 
 function Addon.GetWordsEnabled() return settings().words and true or false end
 function Addon.SetWordsEnabled(value) settings().words = value and true or false end
+
+function Addon.GetQuestAutoPlay()
+  local base = WordHunterWoW_Addon
+  if base and type(base.GetQuestVoiceAutoPlay) == "function" then return base.GetQuestVoiceAutoPlay() end
+  return settings().questAutoPlay ~= false
+end
 
 -- How long to wait after the quest window opens before speaking.
 --
@@ -92,14 +125,28 @@ function Addon.ForgetParts()
   parsed = {}
 end
 
+-- A pack's quests field is { low, high }, one range. A merged pack whose
+-- expansions are not neighbours -- Classic through Wrath plus Draenor, say --
+-- adds ranges = { { low, high }, ... }, the exact runs, and keeps the outer pair
+-- as the span they lie in, for an engine older than the field. Two such packs
+-- may span each other, and only the runs say which one holds a quest.
+local function holds(part, questId)
+  local runs = part.ranges
+  if runs then
+    for _, run in ipairs(runs) do
+      if questId >= run[1] and questId <= run[2] then return true end
+    end
+    return false
+  end
+  local range = part.quests
+  return range ~= nil and questId >= range[1] and questId <= range[2]
+end
+
 local function questOwner(questId)
   questId = tonumber(questId)
   if not questId then return nil end
   for folder, part in pairs(WordHunterWoW_Voice_Parts) do
-    local range = part.quests
-    if range and questId >= range[1] and questId <= range[2] then
-      return folder
-    end
+    if (part.quests or part.ranges) and holds(part, questId) then return folder end
   end
 end
 
@@ -107,6 +154,13 @@ local function wordOwner()
   for folder, part in pairs(WordHunterWoW_Voice_Parts) do
     if part.words then return folder end
   end
+end
+
+-- What that pack ships its clips as, for the two path builders. A pack that
+-- does not say is Vorbis, which is every pack built before the light ones.
+local function formatOf(folder)
+  local part = folder and WordHunterWoW_Voice_Parts[folder]
+  return part and part.ext or nil
 end
 
 local function fullPath(relative, folder)
@@ -150,19 +204,49 @@ end
 
 local function play(path)
   if not path then return false end
-  silence()
   -- PlaySoundFile answers false when the file is not there, which is the normal
   -- case for a clip nobody has generated yet. Not an error, and not worth a
   -- message: the player asked for a voice, not for a report on coverage.
   local willPlay, handle = PlaySoundFile(path, settings().channel)
-  if willPlay then playing = handle end
+  -- A missing word must not cut off the quest already being read. Replace
+  -- its handle only after the client confirms that the new clip can play.
+  if willPlay then
+    silence()
+    playing = handle
+  end
   return willPlay and true or false
 end
 
 -- A pause between two sentences of the same passage, so a paragraph does not
 -- arrive as one breathless run. The same quarter second the generator leaves
 -- between the pieces of a sentence too long to speak in one go.
+--
+-- Settable, because it is the only pacing this addon actually controls and it
+-- was asked for as a speed. It is not a speed and cannot be made into one:
+-- PlaySoundFile takes a path and a channel, hands back a handle, and offers no
+-- rate, no pitch and no seek -- the same wall Pause runs into a few hundred
+-- lines below, where a paused sentence can only be started again from its
+-- beginning. Nothing in the client can make the reader talk slower.
+--
+-- What a longer gap buys is the thing a learner wanted from a slower voice:
+-- time to finish reading the sentence before the next one starts. Three seconds
+-- at the top, which is long enough to reread a line and short enough that a
+-- passage still feels like it is being read to you rather than dictated.
 local SENTENCE_GAP = 0.25
+local GAP_MIN, GAP_MAX = 0, 3
+Addon.SENTENCE_GAP_DEFAULT = SENTENCE_GAP
+Addon.SENTENCE_GAP_MIN, Addon.SENTENCE_GAP_MAX = GAP_MIN, GAP_MAX
+
+function Addon.GetSentenceGap()
+  local value = tonumber(settings().sentenceGap)
+  if value == nil then return SENTENCE_GAP end
+  return math.max(GAP_MIN, math.min(GAP_MAX, value))
+end
+
+function Addon.SetSentenceGap(value)
+  settings().sentenceGap =
+    math.max(GAP_MIN, math.min(GAP_MAX, tonumber(value) or SENTENCE_GAP))
+end
 
 -- How long each sentence of a passage runs, in hundredths of a second.
 --
@@ -540,7 +624,7 @@ local function speakerName()
 end
 
 local function readFrom(questId, field, index, folder, only)
-  local relative = Addon.QuestPath(questId, field, index)
+  local relative = Addon.QuestPath(questId, field, index, formatOf(folder))
   if not relative or not play(fullPath(relative, folder)) then return false end
   highlight(index, questId, field)
   -- Recorded per sentence, not once when the passage starts. The sentence
@@ -557,8 +641,12 @@ local function readFrom(questId, field, index, folder, only)
   if thisOne then
     local mine = chain
     if lengths[index + 1] and not only then
-      after(thisOne / 100 + SENTENCE_GAP, function()
-        if chain == mine then readFrom(questId, field, index + 1, folder) end
+      after(thisOne / 100 + Addon.GetSentenceGap(), function()
+        if chain == mine and not readFrom(questId, field, index + 1, folder) then
+          -- Incomplete speech is paused, not finished: keep retry/replay and
+          -- close available, but invalidate the chain and stop its handle.
+          Addon.Pause()
+        end
       end)
     else
       -- The last sentence. The frame stays, saying it has finished rather than
@@ -593,6 +681,31 @@ function Addon.PlayQuest(questId, field, sentence, only)
   if readFrom(questId, field, sentence or 1, folder, only) then return true end
   if Addon.GetDemo() then return play(placeholder()) end
   return false
+end
+
+-- Prepare the transport without asking the client to play a sound.
+function Addon.StartQuest(questId, field, title)
+  Addon.Stop()
+  if not Addon.GetEnabled() then return false end
+  local folder = questOwner(tonumber(questId))
+  if not folder or not Addon.QuestPath(questId, field, 1, formatOf(folder)) then return false end
+  current = { questId = questId, field = field }
+  if Addon.ShowTalker then
+    Addon.ShowTalker(title or speakerName(), "npc", "Bereit zum Vorlesen")
+    if Addon.SetTalkerSpeaking then Addon.SetTalkerSpeaking(false) end
+  end
+  if Addon.GetQuestAutoPlay() then
+    local mine = chain
+    local wait = Addon.GetDelay()
+    if wait > 0 then
+      after(wait, function()
+        if chain == mine and Addon.GetQuestAutoPlay() then Addon.PlayQuest(questId, field) end
+      end)
+    else
+      Addon.PlayQuest(questId, field)
+    end
+  end
+  return true
 end
 
 -- Pause, at sentence granularity and no finer.
@@ -648,7 +761,8 @@ function Addon.PlayWord(word)
   if not Addon.GetEnabled() or not Addon.GetWordsEnabled() then return false end
   local key = Addon.WordKey(word)
   if key == "" then return false end
-  return play(fullPath(Addon.WordPath(key), wordOwner()))
+  local owner = wordOwner()
+  return play(fullPath(Addon.WordPath(key, formatOf(owner)), owner))
 end
 
 -- The key a clip was filed under. The dictionary casefolds and turns the eszett
@@ -676,6 +790,7 @@ local frame = CreateFrame("Frame")
 for event in pairs(PASSAGE_EVENT) do frame:RegisterEvent(event) end
 frame:RegisterEvent("QUEST_FINISHED")
 frame:RegisterEvent("ADDON_LOADED")
+frame:RegisterEvent("PLAYER_LOGOUT")
 -- GOSSIP_CLOSED is deliberately not here.
 --
 -- Taking a quest from a gossip window fires QUEST_DETAIL and then
@@ -688,8 +803,15 @@ frame:RegisterEvent("ADDON_LOADED")
 -- Nothing is lost by dropping it: this addon never reads gossip text, so a
 -- gossip window closing has no audio of its own to stop.
 frame:SetScript("OnEvent", function(_, event, arg1)
+  if event == "PLAYER_LOGOUT" then
+    -- The stamp keepNewestSettings reads. A reload is a logout too, so no
+    -- pack's copy is ever older than the last reload it was present for.
+    if time then settings().saved = time() end
+    return
+  end
   if event == "ADDON_LOADED" then
-    -- A data addon may load after this one. Its declaration is only visible
+    keepNewestSettings()
+    -- A sound pack may load after this one. Its declaration is only visible
     -- once it has, so the map is dropped and rebuilt on the next lookup.
     Addon.ForgetParts()
     if arg1 == ENGINE then
@@ -716,6 +838,12 @@ frame:SetScript("OnEvent", function(_, event, arg1)
   end
   local field = PASSAGE_EVENT[event]
   if field then
+    -- With the Reader installed, its render hook starts narration after the player opens it.
+    local base = WordHunterWoW_Addon
+    if base and base.GetNpcReaderAutoOpen then
+      if not base.panel or not base.panel:IsShown() then Addon.Stop() end
+      return
+    end
     local questId = GetQuestID and GetQuestID() or 0
     -- The whole passage, after a beat: the first sentence when the delay is up,
     -- the rest on timers taken from the durations the pack ships.
@@ -723,16 +851,7 @@ frame:SetScript("OnEvent", function(_, event, arg1)
     -- Stop() runs first so that opening a second quest window during the wait
     -- cancels the first one's pending start, rather than both of them speaking.
     if questId and questId > 0 then
-      Addon.Stop()
-      local mine = chain
-      local wait = Addon.GetDelay()
-      if wait > 0 then
-        after(wait, function()
-          if chain == mine then Addon.PlayQuest(questId, field) end
-        end)
-      else
-        Addon.PlayQuest(questId, field)
-      end
+      Addon.StartQuest(questId, field)
     end
   elseif event == "QUEST_FINISHED" then
     -- Closing the quest window stops the voice. Reading on while the frame is
@@ -764,6 +883,18 @@ local function status()
     Addon.GetDemo() and "on" or "off")
 end
 
+-- Which pack's copy of the engine this is, and whether another pack carries a
+-- newer one. The version is Naming.lua's; the folder is the one the client
+-- loaded these files from.
+local function engineLine()
+  local version = Addon.EngineVersion and Addon.EngineVersion() or "?"
+  local line = string.format("engine %s, running from %s", version, ENGINE)
+  for _, copy in ipairs(Addon.NewerCopies and Addon.NewerCopies() or {}) do
+    line = line .. string.format("; %s carries %s -- update %s", copy.folder, copy.version, ENGINE)
+  end
+  return line
+end
+
 SLASH_WHWVOICE1 = "/whwvoice"
 SLASH_WHWVOICE2 = "/whwv"
 SlashCmdList = SlashCmdList or {}
@@ -786,6 +917,7 @@ SlashCmdList["WHWVOICE"] = function(input)
     return
   else
     say(status())
+    say(engineLine())
     say("/whwv on | off | words | demo | stop | config")
     return
   end
@@ -802,7 +934,10 @@ function Addon.HookBaseAddon()
   Addon.hooked = true
   local openEditor = base.openEditor
   base.openEditor = function(word, ...)
-    Addon.PlayWord(word)
+    local opts = select(4, ...)
+    local locale = type(opts) == "table" and opts.locale
+      or base.GetTargetLocale and base.GetTargetLocale()
+    if not locale or locale == "deDE" then Addon.PlayWord(word) end
     return openEditor(word, ...)
   end
 end

@@ -1,0 +1,5 @@
+<Bindings>
+  <Binding name="WORDHUNTERVOICE_PAUSE" header="WORDHUNTERVOICE" category="ADDONS">WordHunterWoW_VoiceTogglePause()</Binding>
+  <Binding name="WORDHUNTERVOICE_REPLAY" category="ADDONS">if WordHunterWoW_Voice.Replay then WordHunterWoW_Voice.Replay() end</Binding>
+  <Binding name="WORDHUNTERVOICE_STOP" category="ADDONS">if WordHunterWoW_Voice.Stop then WordHunterWoW_Voice.Stop() end</Binding>
+</Bindings>

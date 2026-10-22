@@ -1,5 +1,9 @@
+local ADDON_NAME = ... or "WordHunterWoW-Voice-DE"
 local Addon = WordHunterWoW_Voice or {}
 WordHunterWoW_Voice = Addon
+-- Every file of the engine opens with these two lines; Naming.lua says why.
+if Addon.host == nil and Addon.ForgetParts == nil then Addon.host = ADDON_NAME end
+if Addon.host ~= ADDON_NAME then return end
 
 -- A play button beside every paragraph the pack has a recording for, so a
 -- passage can be heard again without reopening the quest.
@@ -141,7 +145,7 @@ function Addon.PlacePlayButtons(quest, panel)
   -- The scroll frame as well as the content: the gutter is measured off the pane
   -- the text is clipped to, and a panel that cannot say where that is gets no
   -- buttons rather than buttons in the wrong place.
-  if not Addon.GetEnabled() or not quest or not panel or not panel.content or not panel.scroll then
+  if not Addon.GetEnabled() or not quest or quest.voiceUnavailable or not panel or not panel.content or not panel.scroll then
     return 0
   end
   local field = PASSAGE_FIELD[quest.passage or "offer"]
@@ -252,7 +256,7 @@ function Addon.HookQuestPanel()
     -- and it is the same pair of lookups PlacePlayButtons makes a moment later,
     -- so the strip appears exactly when a button does.
     local quest = base.lastQuest
-    if not quest or not quest.id then return inherited end
+    if not quest or not quest.id or quest.voiceUnavailable then return inherited end
     local field = PASSAGE_FIELD[quest.passage or "offer"]
     if not field then return inherited end
     local folder = Addon.QuestOwner and Addon.QuestOwner(quest.id)
@@ -262,9 +266,27 @@ function Addon.HookQuestPanel()
     return math.max(buttonSize() + TEXT_GAP, inherited)
   end
   local previous = base.OnQuestPanelRendered
+  local passageKey, watchedPanel
   base.OnQuestPanelRendered = function(quest, panel)
     -- Anything already listening keeps its turn.
     if previous then previous(quest, panel) end
+    if quest and quest.voiceUnavailable and Addon.Stop then Addon.Stop() end
+    if panel and panel ~= watchedPanel and type(panel.HookScript) == "function" then
+      watchedPanel = panel
+      panel:HookScript("OnHide", function() passageKey = nil; Addon.Stop() end)
+    end
+    local field = quest and PASSAGE_FIELD[quest.passage or "offer"]
+    if Addon.GetEnabled() and quest and not quest.voiceUnavailable and field and panel and panel:IsShown()
+        and (not quest.wordLocale or quest.wordLocale == "deDE") then
+      local key = tostring(quest.id) .. "\1" .. field
+      if passageKey ~= key then
+        passageKey = key
+        Addon.StartQuest(quest.id, field, quest.title)
+      end
+    elseif passageKey then
+      passageKey = nil
+      Addon.Stop()
+    end
     Addon.PlacePlayButtons(quest, panel)
   end
 end

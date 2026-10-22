@@ -1,5 +1,9 @@
+local ADDON_NAME = ... or "WordHunterWoW-Voice-DE"
 local Addon = WordHunterWoW_Voice or {}
 WordHunterWoW_Voice = Addon
+-- Every file of the engine opens with these two lines; Naming.lua says why.
+if Addon.host == nil and Addon.ForgetParts == nil then Addon.host = ADDON_NAME end
+if Addon.host ~= ADDON_NAME then return end
 
 -- The options panel, in the game's own AddOns list.
 --
@@ -91,15 +95,24 @@ end
 -- list reads the way the download page does.
 local ORDER = {
   "Classic", "BurningCrusade", "Wrath", "Cataclysm", "Pandaria", "Draenor",
-  "Legion", "Azeroth", "Shadowlands", "Dragonflight", "WarWithin", "Words",
+  "Legion", "Azeroth", "Shadowlands", "Dragonflight", "WarWithin", "Modern", "Words",
 }
+
+-- "Classic" for WordHunterWoW-Voice-DE-Classic: the part of a pack's folder
+-- name a player would recognise from the download page.
+local function packName(folder)
+  return folder:match("^WordHunterWoW%-Voice%-DE%-(.+)$") or folder
+end
+Addon.PackName = packName
 
 function Addon.InstalledPacks()
   local held, quests, words = {}, 0, false
   for folder, part in pairs(WordHunterWoW_Voice_Parts or {}) do
-    local name = folder:match("^WordHunterWoW%-Voice%-DE%-(.+)$") or folder
-    held[name] = true
-    if part.words then words = true else quests = quests + 1 end
+    held[packName(folder)] = true
+    -- Counted separately rather than one or the other: a pack may hold both
+    -- the dictionary and a quest range.
+    if part.words then words = true end
+    if part.quests then quests = quests + 1 end
   end
   local named = {}
   for _, name in ipairs(ORDER) do
@@ -179,8 +192,8 @@ function Addon.CreateSettingsPanel()
   local blurb = place(panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall"),
     title, 0, -8, { role = "meta", wide = true })
   blurb:SetJustifyH("LEFT")
-  blurb:SetText("Liest deutschen Questtext vor. Die Audiodateien liegen in "
-    .. "separaten Paketen; ein Quest ohne Aufnahme bleibt still.")
+  blurb:SetText("Liest deutschen Questtext vor. Jedes Audiopaket bringt den "
+    .. "Vorleser mit; ein Quest ohne Aufnahme bleibt still.")
 
   local quests = place(makeCheck(panel, "Questtext vorlesen",
     "Liest Beschreibung, Zwischenstand und Abgabe, Satz für Satz.",
@@ -227,13 +240,56 @@ function Addon.CreateSettingsPanel()
     end
   end
 
+  -- How long the voice waits between one sentence and the next.
+  --
+  -- Asked for as a reading speed, which the client cannot give: PlaySoundFile
+  -- takes a path and a channel and offers no rate, no pitch and no seek, so
+  -- nothing here can make the reader talk slower. What this does instead is the
+  -- part a learner wanted from a slower voice -- time to finish reading the
+  -- line before the next one starts -- and it is labelled as the pause it is
+  -- rather than as a percentage that would promise the other thing.
+  local gap = place(CreateFrame("Slider", "WordHunterWoWVoiceGapSlider", panel,
+    "OptionsSliderTemplate"), delay, 0, -32, { own = true, w = 220 })
+  gap:SetMinMaxValues(Addon.SENTENCE_GAP_MIN or 0, Addon.SENTENCE_GAP_MAX or 3)
+  gap:SetValueStep(0.25)
+  if gap.SetObeyStepOnDrag then gap:SetObeyStepOnDrag(true) end
+  if gap.Low then gap.Low:SetText("keine") end
+  if gap.High then gap.High:SetText("3 s") end
+  local function gapText(value)
+    return value == 0 and "Satzpause: keine"
+      or string.format("Satzpause: %.2f s", value)
+  end
+  gap:SetScript("OnValueChanged", function(self, value)
+    value = math.floor(value * 4 + 0.5) / 4
+    Addon.SetSentenceGap(value)
+    if self.Text then self.Text:SetText(gapText(value)) end
+  end)
+  gap.refresh = function()
+    local value = Addon.GetSentenceGap()
+    gap:SetValue(value)
+    -- SetValue fires OnValueChanged only when the value moves, so a panel
+    -- reopened on an unchanged setting would keep the caption it was built
+    -- with. The same trap the main addon's sliders carry a note about.
+    if gap.Text then gap.Text:SetText(gapText(value)) end
+  end
+
   local installed = place(panel:CreateFontString(nil, "ARTWORK", "GameFontNormal"),
-    delay, -6, -28, { role = "body" })
+    gap, -6, -28, { role = "body" })
   installed:SetText("Installierte Pakete")
 
   local list = place(panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall"),
     installed, 0, -6, { role = "meta", wide = true })
   list:SetJustifyH("LEFT")
+
+  -- Which pack's copy of the engine is running, and whether a pack carries a
+  -- newer one. Every pack ships the engine and the client runs the first copy
+  -- it loads, not the newest -- so after updating one pack of several the new
+  -- version can be on disk and not running, and this is the line that says so
+  -- and names the pack to update.
+  local engine = place(panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall"),
+    list, 0, -6, { role = "meta", wide = true })
+  engine:SetJustifyH("LEFT")
+  panel.engineLine = engine
 
   panel.refresh = function()
     quests.refresh()
@@ -241,6 +297,7 @@ function Addon.CreateSettingsPanel()
     talker.refresh()
     demo.refresh()
     delay.refresh()
+    gap.refresh()
     local named, questPacks, hasWords = Addon.InstalledPacks()
     if #named == 0 then
       list:SetText("|cffff8080Keine|r. Ohne ein Paket bleibt jeder Quest still.")
@@ -248,6 +305,14 @@ function Addon.CreateSettingsPanel()
       local tail = hasWords and "" or "  |cffc0c0c0(kein Wörterpaket)|r"
       list:SetText(table.concat(named, ", ") .. tail)
     end
+    local version = Addon.EngineVersion and Addon.EngineVersion()
+    local host = Addon.host and packName(Addon.host) or "?"
+    local text = string.format("Vorleser %s, geladen aus dem Paket %s.", version or "?", host)
+    for _, copy in ipairs(Addon.NewerCopies and Addon.NewerCopies() or {}) do
+      text = text .. string.format("\n|cffff8080Paket %s bringt Vorleser %s mit; %s aktualisieren.|r",
+        packName(copy.folder), copy.version, host)
+    end
+    engine:SetText(text)
     -- Words cannot be spoken without the pack that holds them, and a switch
     -- that does nothing is worse than one that says why.
     if hasWords then words:Enable() else words:Disable() end

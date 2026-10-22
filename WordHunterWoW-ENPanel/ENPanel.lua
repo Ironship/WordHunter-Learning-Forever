@@ -1,6 +1,14 @@
 local addonName = ...
 
 local frame
+local padRegistered
+local function registerPadFrame()
+  if frame and not padRegistered and not (InCombatLockdown and InCombatLockdown())
+      and ConsolePort and type(ConsolePort.AddInterfaceCursorFrame) == "function" then
+    padRegistered = ConsolePort:AddInterfaceCursorFrame(frame)
+  end
+end
+
 local hideWatched = {}
 local db
 -- Which passage the NPC is showing. The base addon works this out too, and its
@@ -287,6 +295,54 @@ local function ensureFrame()
   frame.content = CreateFrame("Frame", nil, frame.scroll)
   frame.content:SetSize(368, 1)
   frame.scroll:SetScrollChild(frame.content)
+  local padHint = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  padHint:SetPoint("BOTTOMLEFT", 16, 5)
+  padHint:SetPoint("BOTTOMRIGHT", -16, 5)
+  padHint:SetJustifyH("LEFT")
+  local function refreshPadHint()
+    registerPadFrame()
+    if not (InCombatLockdown and InCombatLockdown()) and type(frame.EnableGamePadButton) == "function" then
+      frame:EnableGamePadButton(true)
+      frame:SetPropagateKeyboardInput(true)
+    end
+    local base = WordHunterWoW_Addon
+    local enabled = not (base and base.GetGamePadEnabled and not base.GetGamePadEnabled())
+      and ((C_GamePad and C_GamePad.IsEnabled and C_GamePad.IsEnabled()) or (GetCVarBool and GetCVarBool("GamePadEnable")))
+    local key = function(value) return GetBindingText and GetBindingText(value, 1) or value end
+    local cursor = ConsolePort and ConsolePort.IsCursorActive and ConsolePort:IsCursorActive()
+    padHint:SetText(enabled and (cursor and "ConsolePort: use cursor hints to scroll / close"
+      or key("PADDUP") .. "/" .. key("PADDDOWN") .. ": scroll · " .. key("PAD2") .. ": close") or "")
+    frame.scroll:SetPoint("BOTTOMRIGHT", -34, enabled and 32 or 16)
+  end
+  frame:HookScript("OnShow", refreshPadHint)
+  if frame.EnableGamePadButton then
+    if not (InCombatLockdown and InCombatLockdown()) then
+      frame:EnableGamePadButton(true)
+      frame:SetPropagateKeyboardInput(true)
+    end
+    frame:SetScript("OnGamePadButtonDown", function(self, key)
+      if InCombatLockdown and InCombatLockdown() then return end
+      local base = WordHunterWoW_Addon
+      local handled = false
+      local cursor = ConsolePort and ConsolePort.IsCursorActive and ConsolePort:IsCursorActive()
+      if not cursor and not (base and base.GetGamePadEnabled and not base.GetGamePadEnabled()) then
+        if key == "PAD2" then self:Hide(); handled = true
+        elseif key == "PADDUP" or key == "PADDDOWN" or key == "PADLSHOULDER" or key == "PADRSHOULDER" then
+          local up = key == "PADDUP" or key == "PADLSHOULDER"
+          local amount = (key == "PADDUP" or key == "PADDDOWN") and 32 or frame.scroll:GetHeight() * .8
+          frame.scroll:SetVerticalScroll(math.max(0, math.min(frame.scroll:GetVerticalScrollRange(),
+            frame.scroll:GetVerticalScroll() + (up and -amount or amount))))
+          handled = true
+        end
+      end
+      self:SetPropagateKeyboardInput(not handled)
+    end)
+  end
+  local padEvents = CreateFrame("Frame", nil, frame)
+  for _, event in ipairs({ "ADDON_LOADED", "PLAYER_REGEN_ENABLED", "UPDATE_BINDINGS", "CVAR_UPDATE", "GAME_PAD_ACTIVE_CHANGED", "GAME_PAD_CONFIGS_CHANGED" }) do
+    pcall(padEvents.RegisterEvent, padEvents, event)
+  end
+  padEvents:SetScript("OnEvent", refreshPadHint)
   frame.text = frame.content:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   frame.text:SetPoint("TOPLEFT", 0, 0)
   frame.text:SetPoint("TOPRIGHT", 0, 0)

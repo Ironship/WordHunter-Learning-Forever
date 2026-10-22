@@ -1001,7 +1001,8 @@ function Addon.AttachQuestLogButton()
   if logButton then return logButton end
   local host = questLogHost()
   if not host then return nil end
-  local button = Addon.createActionButton(host, LABELS.questLogButton)
+  local button = CreateFrame("Button", "WordHunterWoWQuestLogPadButton", host, "UIPanelButtonTemplate")
+  button:SetText(LABELS.questLogButton)
   button:SetSize(104, 22)
   -- Just outside the log's top-right corner, not in among Blizzard's own
   -- buttons. Which children the quest log has, and where it has room for
@@ -1044,6 +1045,14 @@ function Addon.AttachQuestLogButton()
   end)
   logButton = button
   Addon.questLogButton = button
+  if Addon.AttachGamePad then Addon.AttachGamePad(button) end
+  local hint = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  hint:SetPoint("TOP", button, "BOTTOM", 0, -2)
+  button:HookScript("OnShow", function()
+    local enabled = (C_GamePad and C_GamePad.IsEnabled and C_GamePad.IsEnabled())
+      or (GetCVarBool and GetCVarBool("GamePadEnable"))
+    hint:SetText(enabled and (Addon.GamePadUI.Key("PAD3") .. ": reader") or "")
+  end)
   return button
 end
 
