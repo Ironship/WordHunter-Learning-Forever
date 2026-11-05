@@ -79,6 +79,8 @@ end
 
 function Addon.GetWordsEnabled() return settings().words and true or false end
 function Addon.SetWordsEnabled(value) settings().words = value and true or false end
+-- The base hides its separate word switch on older embedded engine copies.
+Addon.IndependentWordAudio = true
 
 function Addon.GetQuestAutoPlay()
   local base = WordHunterWoW_Addon
@@ -758,7 +760,7 @@ function Addon.CanReplay()
 end
 
 function Addon.PlayWord(word)
-  if not Addon.GetEnabled() or not Addon.GetWordsEnabled() then return false end
+  if not Addon.GetWordsEnabled() then return false end
   local key = Addon.WordKey(word)
   if key == "" then return false end
   local owner = wordOwner()

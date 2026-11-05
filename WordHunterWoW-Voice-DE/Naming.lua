@@ -23,7 +23,7 @@ WordHunterWoW_Voice = Addon
 -- re-read and the engine has not changed. Each copy files its own before it
 -- yields, so the running engine can say when a pack carries a newer one than
 -- the copy that got to run -- Settings.lua's page and /whwv both do.
-local ENGINE_VERSION = "2.0.6"
+local ENGINE_VERSION = "2.0.9"
 Addon.copies = Addon.copies or {}
 Addon.copies[ADDON_NAME] = ENGINE_VERSION
 if Addon.host == nil and Addon.ForgetParts == nil then Addon.host = ADDON_NAME end
